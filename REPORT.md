@@ -340,6 +340,89 @@ uncompacted context would eventually stop fitting at all, is not something
 17-step tasks can answer.
 
 
+### 2.9 Token anatomy: why each arm spends what it spends
+
+The headline table poses two puzzles it does not answer. Arm C sends a
+*strictly smaller* per-step payload than B — it emits no crops — yet spends
+12 % more total tokens. Arm A sends a full screenshot every single step, yet
+spends 4× fewer total tokens than B. `analysis/token_anatomy.py` decomposes
+both; full output in `results/token_anatomy.txt`.
+
+**Where the tokens actually sit** (per task, 271 runs):
+
+| Arm | total | cache-read | cache-write | input | output | read share |
+|---|---|---|---|---|---|---|
+| A | 22,144 | 3,687 | 17,916 | 18 | 523 | 16.7 % |
+| B | 83,805 | 75,124 | 7,664 | 23 | 994 | 89.6 % |
+| C | 93,870 | 83,629 | 8,547 | 24 | 1,669 | 89.1 % |
+| D | 176,599 | 148,178 | 27,634 | 19 | 768 | 83.9 % |
+
+#### Why A spends fewer tokens than B
+
+The gap between them is 61,661 tokens per task. The gap in **cache reads
+alone is 71,437** — 116 % of it (over 100 % because A more than makes up the
+difference in cache *writes*, where it spends 2.3× what B does). The entire
+difference is re-read tokens, and nothing else.
+
+The mechanism is the transcript. Arm A rebuilds its conversation every step in
+order to drop the previous screenshot, so it never re-reads a prefix: its
+total is `sum of per-step payloads`, linear in step count, and the pooled fit
+confirms it almost exactly (R² = 0.999 linear). Arm B appends, so step *k*
+re-reads everything steps 1…*k*−1 put there: its total is `sum of prefixes`,
+which grows faster than linearly. Fitting within a single task, where the
+element table size is held fixed, a quadratic term buys B a further +0.20 of
+R² (0.677 → 0.874).
+
+**But cheaper in tokens is dearer in money.** Those re-read tokens bill at
+roughly a tenth of fresh input, so the ranking inverts the moment you count
+what the provider actually had to process:
+
+| | A | B | A/B |
+|---|---|---|---|
+| Total tokens / task | 22,144 | 83,805 | **0.26×** |
+| Fresh tokens / task (input + cache-write + output) | 18,457 | 8,681 | **2.13×** |
+| Cost / task | $0.0777 | $0.0557 | **1.40×** |
+| Effective price per 100 k tokens | $0.3507 | $0.0664 | **5.3×** |
+
+Arm A pays 5.3× more per token than B because almost none of its tokens are
+cached. "A uses fewer tokens" is an artefact of counting a cache read the same
+as a fresh one; what A actually does is trade many cheap tokens for fewer
+expensive ones, and lose on the exchange.
+
+#### Why C spends more than B
+
+Not because of its channel — because of what happens when it cannot see.
+
+Splitting the 74 runs of each arm by task group:
+
+| Group | runs | B tokens | C tokens | B steps | C steps | B success | C success |
+|---|---|---|---|---|---|---|---|
+| mid-task appearance change | 8 | **21,159** | **130,217** | 5.0 | 11.5 | 1.000 | 0.125 |
+| everything else | 66 | 91,399 | **89,464** | 12.4 | 12.3 | 0.909 | 0.924 |
+
+Outside the group where C is blind, **C is the cheaper arm** — 1,934 tokens
+per task less than B, which is exactly what a channel that omits crops should
+cost. That group of 8 runs accounts for **119 % of C's total excess**.
+
+Inside it, C spends 6.2× what B spends, takes 2.3× the steps, and still fails.
+It cannot tell six identically-named rows apart, so it does the only thing left
+open to it: clicks them one by one, and every extra step adds a turn that every
+later step re-reads. Its output tokens per step run 1.89× B's pooled — but only
+1.04× when matched task-for-task and step-for-step, which localises the extra
+reasoning to precisely those runs.
+
+The exchange rate is the point:
+
+> In that group arm B spent **110 extra image tokens** per task on crops, and
+> spent **109,058 fewer tokens overall**. Each token of crop returned roughly
+> **990 tokens** — and the difference between finishing and not.
+
+The general form: a delta channel that omits information the agent needs does
+not save the tokens it withheld. It pays them back with interest, because the
+agent spends extra turns recovering the information, and in an append-only
+context every extra turn is re-read by every turn after it.
+
+
 ---
 
 ## 3. The three questions, answered
