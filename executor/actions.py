@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import subprocess
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from observer import table as tbl
 
@@ -27,9 +27,33 @@ class ActionResult:
     extra: dict = field(default_factory=dict)
 
 
-def _xdo(*args, timeout=10):
-    return subprocess.run(["xdotool", *args], capture_output=True,
-                          text=True, timeout=timeout)
+def _xdo(*args, timeout=20):
+    try:
+        return subprocess.run(["xdotool", *args], capture_output=True,
+                              text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return subprocess.CompletedProcess(args, 1, "", "xdotool timed out")
+
+
+def revalidate(el):
+    """Re-read one element's live geometry and state straight from AT-SPI.
+
+    Validation at the instant of acting is meant to be a cheap *local* check,
+    so it re-reads the single element the action names rather than re-walking
+    the whole tree — two D-Bus round trips instead of a couple of thousand.
+    Returns (bbox, states) or (None, None) if the element is gone.
+    """
+    acc = getattr(el, "_acc", None)
+    if acc is None:
+        return el.bbox, el.states
+    try:
+        states = tbl._states_of(acc)
+        bbox = tbl._bbox_of(acc)
+    except Exception:
+        return None, None
+    if bbox is None or "showing" not in states:
+        return None, None
+    return bbox, states
 
 
 class Executor:
@@ -69,6 +93,25 @@ class Executor:
             self.abort_log.append({"reason": "element_gone", "id": eid})
             return ActionResult(False, "click", f"element #{eid} no longer present",
                                 aborted=True, elapsed_s=time.time() - t0)
+
+        # Act-time validation: is it still there, still in the state the model
+        # was told about, and still where it was?
+        bbox, states = revalidate(el)
+        if bbox is None:
+            self.action_aborts += 1
+            self.abort_log.append({"reason": "element_gone_at_act_time", "id": eid})
+            return ActionResult(False, "click",
+                                f"#{eid} disappeared between decision and action",
+                                aborted=True, elapsed_s=time.time() - t0)
+        if bbox != el.bbox:
+            # It moved while the model was deciding; re-point at the new box
+            # rather than clicking where it used to be.
+            dx, dy = bbox[0] - el.bbox[0], bbox[1] - el.bbox[1]
+            el = replace(el, bbox=bbox,
+                         click=(el.click[0] + dx, el.click[1] + dy), states=states)
+        else:
+            el = replace(el, states=states)
+
         if expect_states:
             missing = [s for s in expect_states if s not in el.states]
             if missing:

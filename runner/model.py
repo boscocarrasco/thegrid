@@ -112,6 +112,12 @@ class ModelSession:
 
     # ---------------------------------------------------------------- ask
 
+    @staticmethod
+    def is_rate_limit(err: str) -> bool:
+        e = (err or "").lower()
+        return ("session limit" in e or "rate limit" in e
+                or "usage limit" in e or "429" in e or "overloaded" in e)
+
     def ask(self, content_blocks) -> Reply:
         """content_blocks: list of Anthropic content blocks (text / image)."""
         if self.proc is None or self.proc.poll() is not None:

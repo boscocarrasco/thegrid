@@ -129,6 +129,14 @@ def run_one(task, arm_name, seed, model="sonnet", crop_ttl=3,
 
             reply = sess.ask(obs.blocks)
             rec["model_calls"] += 1
+            if not reply.ok and ModelSession.is_rate_limit(reply.error):
+                # The provider quota is an external constraint, not a property
+                # of the arm. Marking the run rate_limited (rather than failed)
+                # keeps it out of the success statistics instead of silently
+                # scoring it as a loss for whichever arm happened to hit it.
+                rec["error"] = f"rate limited: {reply.error[:200]}"
+                rec["terminated"] = "rate_limited"
+                break
             if not reply.ok:
                 rec["error"] = f"model call failed: {reply.error}"
                 rec["terminated"] = "model_error"
@@ -163,7 +171,11 @@ def run_one(task, arm_name, seed, model="sonnet", crop_ttl=3,
 
             # ---- act, with validation at the instant of acting ----
             t1 = time.time()
-            live = tbl.snapshot(SCREEN_W, SCREEN_H)
+            # The table the model was shown is the one its id refers to; the
+            # executor re-reads that single element's live geometry and state
+            # at the instant of acting, so a second full tree walk here would
+            # cost ~1.4s per step and add nothing.
+            live = cur
             if act.kind == "click":
                 r = ex.click(act.eid, live_table=live, double=act.double)
             elif act.kind == "click_xy":

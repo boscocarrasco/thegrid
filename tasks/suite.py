@@ -284,7 +284,10 @@ def _cdp_eval(expr, port=9222):
     except Exception:
         return None, "websocket-client not installed"
     try:
-        ws_ = create_connection(page["webSocketDebuggerUrl"], timeout=8)
+        # Chromium's DevTools endpoint rejects a websocket carrying an
+        # Origin header with 403, so it must be suppressed.
+        ws_ = create_connection(page["webSocketDebuggerUrl"], timeout=8,
+                                suppress_origin=True)
         ws_.send(json.dumps({"id": 1, "method": "Runtime.evaluate",
                              "params": {"expression": expr,
                                         "returnByValue": True}}))
@@ -546,7 +549,7 @@ def build_suite():
         "In the open spreadsheet, work out the total of the price column "
         "(1.5 + 3.25 + 7.0) and put that total in cell C5. Then save a copy as "
         f"CSV at {WORK}/data/values-total.csv (File > Save As, keep CSV format).",
-        t_calc_cell_setup, t_calc_cell_verify, max_steps=20,
+        t_calc_cell_setup, t_calc_cell_verify, max_steps=16,
         tags=("spreadsheet",), apps=("soffice",)))
 
     T.append(Task(
@@ -554,7 +557,7 @@ def build_suite():
         "In the open spreadsheet add a new row below the last one with item "
         "'tape', qty 6 and price 2. Then save a copy as CSV at "
         f"{WORK}/data/values-plus.csv (File > Save As, keep CSV format).",
-        t_calc_add_row_setup, t_calc_add_row_verify, max_steps=20,
+        t_calc_add_row_setup, t_calc_add_row_verify, max_steps=16,
         tags=("spreadsheet",), apps=("soffice",)))
 
     T.append(Task(
@@ -564,7 +567,7 @@ def build_suite():
         f"into a new text file at {WORK}/data/eng-count.txt using the text "
         "editor (you can open it from the Applications, or use the editor "
         "already available).",
-        t_calc_count_setup, t_calc_count_verify, max_steps=22,
+        t_calc_count_setup, t_calc_count_verify, max_steps=18,
         tags=("spreadsheet", "cross-app"), apps=("soffice", "mousepad")))
 
     T.append(Task(
@@ -605,7 +608,7 @@ def build_suite():
         "revenue and costs figures in it, and then create a new text file at "
         f"{WORK}/archive/summary.txt containing both numbers (revenue and "
         "costs) on separate lines.",
-        t_cross_setup, t_cross_verify, max_steps=24,
+        t_cross_setup, t_cross_verify, max_steps=18,
         tags=("cross-app", "files"), apps=("pcmanfm", "mousepad")))
 
     T.append(Task(
@@ -613,7 +616,7 @@ def build_suite():
         "The open spreadsheet lists stock items. Count how many item rows "
         "there are (not counting the header), then write just that number "
         f"into a new text file at {WORK}/notes/inventory-note.txt",
-        t_cross2_setup, t_cross2_verify, max_steps=22,
+        t_cross2_setup, t_cross2_verify, max_steps=18,
         tags=("cross-app", "spreadsheet"), apps=("soffice", "mousepad")))
 
     return T

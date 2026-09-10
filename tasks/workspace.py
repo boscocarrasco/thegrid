@@ -191,6 +191,12 @@ def launch_browser(url, geom=(60, 40, 1400, 900), wait=7.0, cdp_port=9222):
     os.makedirs(prof, exist_ok=True)
     subprocess.Popen([
         CHROMIUM,
+        # The container runs as root; Chromium refuses to start its zygote
+        # sandbox in that case. This is a sandboxed throwaway desktop.
+        "--no-sandbox", "--disable-dev-shm-usage",
+        # --test-type hides the "unsupported flag" infobar that --no-sandbox
+        # would otherwise pin over the page.
+        "--test-type", "--disable-infobars",
         "--force-renderer-accessibility",
         f"--remote-debugging-port={cdp_port}",
         f"--user-data-dir={prof}",

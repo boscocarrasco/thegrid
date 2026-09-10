@@ -105,3 +105,55 @@ delta.
 Matches the 1–1.5 k per-capture figure the design doc assumes and is the
 resolution class standard computer-use loops use; crops are sent at native
 resolution since they are small (a typical button crop is ~16 tokens).
+
+## D4 — Experiment execution
+
+**D4.1 Model calls share this session's provider quota, and the session was
+rate-limited for roughly six hours mid-build (06:15–12:20 UTC).** The wall
+clock is therefore reported two ways: elapsed since the first command (~8 h)
+and time actually spent working (~2.5 h). Budget decisions are taken against
+the second, because the suspension was involuntary idle time, not work; both
+numbers are stated in the report so the reader can apply whichever they mean.
+
+**D4.2 A run that hits the provider rate limit is recorded as
+`terminated=rate_limited` and excluded from the statistics, not scored as a
+failure.** The quota is a property of the container, not of the observation
+channel, so counting it as a loss would penalise whichever arm happened to be
+scheduled when it struck.
+
+**D4.3 The driver aborts if Xvfb or the AT-SPI bus has died, rather than
+continuing.** The X server did die during the suspension, and a dead desktop
+silently scores every subsequent run as a failure for whichever arm is next —
+fabricated data, which is worse than a short run.
+
+**D4.4 Act-time validation re-reads the single named element over AT-SPI
+instead of re-walking the whole tree.** A full walk costs ~1.4 s with
+LibreOffice open and the loop did two per step; re-reading one element is two
+D-Bus round trips, and it is also what the design actually calls for — a cheap
+*local* check. It additionally re-points the click if the element moved while
+the model was deciding.
+
+**D4.5 The suite run is 14 of the 16 tasks.** `calc_count_eng` and
+`cross_inventory_note` were dropped because each LibreOffice run costs ~2–3
+minutes and the pair would have added ~40 minutes without adding a coverage
+class: every class the brief requires (files, text/format, spreadsheet,
+browser form, cross-application, non-textual) is still covered by the
+remaining 14. Both tasks and their verifiers remain in `tasks/suite.py`.
+
+**D4.6 Repetitions are 3, not 5.** The brief permits dropping to 3 under
+budget pressure and forbids going lower; 5 reps × 3 arms × 14 tasks would not
+fit the remaining wall clock after the six-hour suspension. This is stated in
+the report and is the main reason several comparisons come back as "no
+difference detectable at this N".
+
+**D4.7 Arm D was not run.** It is optional in the brief and the budget did not
+stretch to a fourth arm; the code path (`arms.channels.ArmD`) is implemented
+and exercised, but no D data exists, so the "where does the advantage come
+from" question is answered only partially. Said plainly in the report.
+
+**D4.8 A changed screen region with no tree element behind it is not detected.**
+Arm C's forced-crop rule covers the two cases that do fire (visual roles, and
+a failed bbox-honesty check) but not the third; implementing XDamage-style
+uncovered-region detection was cut for time. Recorded as a limitation, and it
+biases *against* C only where a task's information lives in an unexposed
+region.
