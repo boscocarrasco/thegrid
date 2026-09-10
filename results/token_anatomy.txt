@@ -1,0 +1,129 @@
+token anatomy over 271 usable runs
+
+==========================================================================
+1. ANATOMY OF tokens_total, PER TASK
+==========================================================================
+arm      total  cache_read cache_write    input   output   read %
+A       22,144       3,687      17,916       18      523    16.7%
+B       83,805      75,124       7,664       23      994    89.6%
+C       93,870      83,629       8,547       24    1,669    89.1%
+D      176,599     148,178      27,634       19      768    83.9%
+
+  tokens_total = cache_read + cache_write + input + output.
+  Cache reads are billed at ~10% of fresh input, so a big total is
+  not automatically a big bill — see section 4.
+
+==========================================================================
+2. HOW THE TOTAL GROWS WITH STEPS
+==========================================================================
+  Fitting tokens_total = a + b*n and a + b*n + c*n^2 per arm,
+  n = steps. R^2 says which shape the data actually has.
+
+arm   n runs   tok/step   linear R2   quadratic R2         shape
+A         62      2,418       0.999          1.000        linear
+B         74      6,077       0.578          0.655     quadratic
+C         74      6,768       0.489          0.489        linear
+D         61     14,593       0.453          0.453        linear
+
+  Pooling every task in one fit is a poor model for the tool arms:
+  their per-step payload scales with the element table, which differs
+  by an order of magnitude between a text editor and LibreOffice.
+  Fitting *within* each task, where the table size is fixed, isolates
+  the growth shape:
+
+arm   tasks fitted   median linear R2   median quad R2  median gain
+B                1              0.677            0.874        0.197
+C                3              0.938            0.980        0.042
+
+  An append-only arm re-reads its whole prefix every step, so its
+  billed input is the sum of prefixes: quadratic in step count.
+  An arm that rebuilds its transcript pays each prefix once: linear.
+
+==========================================================================
+3. PER-STEP PAYLOAD (what the arm appends each step)
+==========================================================================
+arm   obs tok/step  img tok/step  out tok/step    steps
+A              127         1,228            51      9.0
+B              397           175            76     11.6
+C              435           172           144     12.2
+D              784         1,251            67      9.6
+
+==========================================================================
+4. TOKENS ARE NOT THE BILL
+==========================================================================
+arm   tokens/task   cost/task   $ per 100k tok  fresh tok/task
+A          22,144      0.0777           0.3507          18,457
+B          83,805      0.0557           0.0664           8,681
+C          93,870      0.0677           0.0721          10,241
+D         176,599      0.1479           0.0837          28,420
+
+  'fresh' = input + cache-write + output: what the provider had to
+  process. It tracks cost far better than the raw total does.
+
+==========================================================================
+5. WHY C > B  (C sends less per step, yet spends more)
+==========================================================================
+                                     B           C      C/B
+steps / task                      11.6        12.2     1.05
+output tok / task                993.6     1,669.3     1.68
+output tok / step                 76.3       144.4     1.89
+obs tok / step                   397.1       434.7     1.09
+image tok / task               1,695.5     1,807.2     1.07
+cache_read / task             75,124.4    83,629.2     1.11
+total / task                  83,805.1    93,870.1     1.12
+
+==========================================================================
+5b. SAME TASK, SAME STEP COUNT — is C still dearer?
+==========================================================================
+  matched (task, step-count) cells: 25
+  total tokens   B     88,665   C    100,278   C/B 1.13
+  output tokens  B      1,127   C      1,167   C/B 1.04
+
+  If C is dearer at equal step count, the extra is not step
+  count: it is what C writes and re-reads per step.
+
+==========================================================================
+5d. HOW MUCH OF C'S EXCESS IS THE BLIND GROUP?
+==========================================================================
+  C - B over every task                  10,065 tokens/task
+  C - B excluding the blind group        -1,934 tokens/task
+  runs in the blind group                     8 of 74
+  share of the excess explained by that group     119.2%
+
+  Outside the group where C cannot see, C is not the dearer arm.
+
+==========================================================================
+5c. WHERE C'S EXTRA STEPS GO, BY TASK GROUP
+==========================================================================
+  mid-task appearance change:
+     steps   B    5.0   C   11.5
+     tokens  B     21,159   C    130,217
+     success B  1.000   C  0.125
+  everything else:
+     steps   B   12.4   C   12.3
+     tokens  B     91,399   C     89,464
+     success B  0.909   C  0.924
+
+==========================================================================
+6. WHY A < B  (a screenshot every step, yet fewer tokens)
+==========================================================================
+                                         A           B      A/B
+steps / task                          8.95       11.59     0.77
+image tok / task                 10,992.58    1,695.51     6.48
+obs tok / task                    1,373.15    5,504.59     0.25
+cache_read / task                 3,687.26   75,124.42     0.05
+cache_write / task               17,916.45    7,663.82     2.34
+input (uncached) / task              17.90       23.22     0.77
+total / task                     22,144.50   83,805.08     0.26
+fresh / task                     18,457.24    8,680.66     2.13
+cost / task                           0.08        0.06     1.40
+
+  Gap in total:          61,661 tokens
+  Gap in cache_read:     71,437 tokens (115.9% of the gap)
+
+  Arm A rebuilds its transcript every step to drop the previous
+  screenshot, so it never re-reads a prefix and its total stays
+  linear. Arm B appends, so every step re-reads everything before
+  it. The gap is almost entirely re-read tokens, which are the
+  cheapest kind — which is why A's *cost* is higher despite this.
+

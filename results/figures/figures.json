@@ -1,0 +1,52 @@
+{
+  "fig1_anchor.png": {
+    "size": [
+      1280,
+      720
+    ],
+    "bytes": 24740,
+    "tokens": 1228,
+    "note": "anchor capture, arm B/C send this once"
+  },
+  "fig1_table.txt": {
+    "elements": 7,
+    "chars": 531
+  },
+  "fig2_before.png": {
+    "size": [
+      1280,
+      720
+    ],
+    "bytes": 38051,
+    "tokens": 1228,
+    "note": "before the click: the rows do not exist yet"
+  },
+  "fig2_after.png": {
+    "size": [
+      1280,
+      720
+    ],
+    "bytes": 49626,
+    "tokens": 1228,
+    "note": "after the click: one row is red, the tree cannot say which"
+  },
+  "fig3_arm_b_crops.png": {
+    "size": [
+      382,
+      510
+    ],
+    "bytes": 20995,
+    "tokens": 259,
+    "note": "the 6 crops arm B sends; arm C sends none of this",
+    "crop_tokens_total": 156
+  },
+  "fig4_menu.png": {
+    "size": [
+      620,
+      400
+    ],
+    "bytes": 11556,
+    "tokens": 330,
+    "note": "the File menu open; the delta below is what B/C send"
+  }
+}
