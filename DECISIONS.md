@@ -157,3 +157,17 @@ a failed bbox-honesty check) but not the third; implementing XDamage-style
 uncovered-region detection was cut for time. Recorded as a limitation, and it
 biases *against* C only where a task's information lives in an unexposed
 region.
+
+**D4.9 Arm A was reimplemented mid-experiment to *replace* its screenshot each
+step, and the 14 runs made under the first version were discarded (archived in
+`results/raw/discarded_armA_v1.jsonl`, excluded from all analysis).** The first
+version appended each new screenshot to one append-only conversation, so the
+baseline accumulated every screenshot it had ever seen and enjoyed full prefix
+caching. The brief specifies the opposite — "en A, la captura se reemplaza cada
+paso, como hace el bucle estándar; no lo 'arregles'" — and the difference is
+not cosmetic: under the corrected version the baseline records
+`cache_read = 0` on every run, because rebuilding the transcript to drop the
+previous image invalidates the prefix. That destroyed cache is the mechanism
+the whole comparison is about, so measuring it wrongly would have answered the
+wrong question. Arms B and C were unaffected and their completed runs were
+kept.

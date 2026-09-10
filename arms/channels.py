@@ -96,6 +96,7 @@ class Channel:
     """Base: shared plumbing, arms override `initial` and `step`."""
     name = "?"
     addressing = "id"          # "id" or "xy"
+    stateless = False          # True => the transcript is rebuilt every step
 
     def __init__(self, crop_ttl: int = 3):
         self.crop_ttl = crop_ttl
@@ -141,29 +142,56 @@ class Channel:
 # --------------------------------------------------------------------- A
 
 class ArmA(Channel):
-    """Baseline: the loop every computer-use agent runs today."""
+    """Baseline: the loop every computer-use agent runs today.
+
+    The screenshot is *replaced* each step rather than accumulated: the model
+    sees the history of what it did as text, and exactly one image — the
+    current screen. That is what the standard loop does, and the brief is
+    explicit that it must not be "fixed". The practical consequence is that
+    the transcript has to be rebuilt every step (`stateless`), because an
+    append-only conversation cannot retract an image it already sent. That
+    rebuild is also why the baseline keeps re-paying for its prefix: the
+    position where the previous screenshot used to sit changes on every step.
+    """
     name = "A"
     addressing = "xy"
+    stateless = True
+
+    def __init__(self, crop_ttl: int = 3):
+        super().__init__(crop_ttl)
+        self.history = []       # [(step_no, action_result_text)]
+
+    def _render(self, task, a, step_no, last_result):
+        lines = [f"TASK: {task.prompt}", ""]
+        if self.history:
+            lines.append("What you have done so far:")
+            for n, res in self.history:
+                lines.append(f"  step {n}: {res}")
+            lines.append("")
+        lines.append(f"This is step {step_no}.")
+        if step_no > 1:
+            lines.append(f"Result of your last action: {last_result}")
+        lines.append(f"Current screenshot ({a['size'][0]}x{a['size'][1]}). "
+                     f"Give coordinates in that space.")
+        return "\n".join(lines)
 
     def initial(self, task, table):
         a = self._anchor()
-        txt = (f"TASK: {task.prompt}\n\n"
-               f"Screenshot below is {a['size'][0]}x{a['size'][1]}. "
-               f"Give coordinates in that space.\n")
+        txt = self._render(task, a, 1, "")
         return Observation(
             blocks=[text_block(txt), image_block(a["b64"])],
             observation_tokens=count_text_tokens(txt),
-            image_tokens=a["tokens"], n_images=1, note="anchor",
+            image_tokens=a["tokens"], n_images=1, note="screenshot-only",
         )
 
     def step(self, task, prev_table, curr_table, last_result, step_no):
+        self.history.append((step_no - 1, last_result[:120]))
         a = self._anchor()
-        txt = (f"Step {step_no}. Result of last action: {last_result}\n"
-               f"Current screenshot ({a['size'][0]}x{a['size'][1]}):")
+        txt = self._render(task, a, step_no, last_result)
         return Observation(
             blocks=[text_block(txt), image_block(a["b64"])],
             observation_tokens=count_text_tokens(txt),
-            image_tokens=a["tokens"], n_images=1, note="full-screenshot",
+            image_tokens=a["tokens"], n_images=1, note="screenshot-replaced",
         )
 
 

@@ -127,6 +127,16 @@ def run_one(task, arm_name, seed, model="sonnet", crop_ttl=3,
             rec["observation_tokens"] += obs.observation_tokens
             rec["image_tokens"] += obs.image_tokens
 
+            if getattr(channel, "stateless", False) and step > 1:
+                # The baseline replaces its screenshot each step, and an
+                # append-only conversation cannot retract an image it already
+                # sent — so the transcript is rebuilt. This is the cache
+                # invalidation the standard loop actually pays for, and it is
+                # the behaviour under comparison, not a defect to work around.
+                sess.close()
+                sess = ModelSession(system, model=model)
+                rec["session_rebuilds"] = rec.get("session_rebuilds", 0) + 1
+
             reply = sess.ask(obs.blocks)
             rec["model_calls"] += 1
             if not reply.ok and ModelSession.is_rate_limit(reply.error):
