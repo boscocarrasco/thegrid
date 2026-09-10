@@ -277,6 +277,50 @@ def table_equal_budget(rows, budgets=(8000, 15000, 30000, 60000)):
     return "\n".join(out)
 
 
+def fresh_tokens(r):
+    """Tokens the provider actually had to process this run.
+
+    `tokens_total` counts a cache *read* the same as a fresh input token, but a
+    read is an order of magnitude cheaper and does not represent work the model
+    redid. Budgeting on the raw total therefore penalises exactly the arms the
+    append-only design is meant to help, so the equal-budget comparison is also
+    reported on this measure and on money.
+    """
+    return r["tokens_in"] + r["tokens_cache_create"] + r["tokens_out"]
+
+
+def table_equal_budget_fresh(rows, budgets=(4000, 8000, 15000, 30000)):
+    g = by_arm(rows)
+    arms = [a for a in ARMS_ORDER if a in g]
+    out = ["| Fresh-token budget / task | " + " | ".join(
+        f"{a} success" for a in arms) + " |"]
+    out.append("|---" * (1 + len(arms)) + "|")
+    for b in budgets:
+        cells = []
+        for a in arms:
+            rs = g[a]
+            ok = sum(1 for r in rs if r["success"] and fresh_tokens(r) <= b)
+            cells.append(f"{100.0 * ok / len(rs):.1f}% ({ok}/{len(rs)})")
+        out.append(f"| {b:,} | " + " | ".join(cells) + " |")
+    return "\n".join(out)
+
+
+def table_equal_budget_cost(rows, budgets=(0.02, 0.04, 0.06, 0.10)):
+    g = by_arm(rows)
+    arms = [a for a in ARMS_ORDER if a in g]
+    out = ["| Cost budget / task (USD) | " + " | ".join(
+        f"{a} success" for a in arms) + " |"]
+    out.append("|---" * (1 + len(arms)) + "|")
+    for b in budgets:
+        cells = []
+        for a in arms:
+            rs = g[a]
+            ok = sum(1 for r in rs if r["success"] and r["cost_usd"] <= b)
+            cells.append(f"{100.0 * ok / len(rs):.1f}% ({ok}/{len(rs)})")
+        out.append(f"| ${b:.2f} | " + " | ".join(cells) + " |")
+    return "\n".join(out)
+
+
 def comparisons(rows):
     """Explicit, interval-aware verdicts for the three report questions."""
     g = by_arm(rows)
@@ -374,7 +418,16 @@ def main():
     body.append("Success rate when every arm is capped at the same tokens per "
                 "task. This is the comparison that prevents a cheaper arm from "
                 "looking good merely because it was allowed to spend less.\n")
+    body.append("**(a) budget on raw total tokens** — note this counts a "
+                "cache read the same as a fresh input token, which penalises "
+                "the append-only arms:\n")
     body.append(table_equal_budget(good))
+    body.append("\n**(b) budget on fresh tokens** (input + cache-write + "
+                "output, i.e. what the provider actually had to process):\n")
+    body.append(table_equal_budget_fresh(good))
+    body.append("\n**(c) budget on money**, which is the measure a user "
+                "actually pays:\n")
+    body.append(table_equal_budget_cost(good))
     body.append("\n## 6. Non-textual tasks vs the rest\n")
     body.append("These three tasks (bar chart, filled-circle count, colour "
                 "badges) carry their information only in pixels, so they are "

@@ -64,10 +64,6 @@ identical call path with identical decoding settings; the brief's requirement
 is that temperature not differ *between arms*, which is satisfied. Recorded as
 a threat to validity because it is not 0.
 
-## D3 — Experiment design
-
-*(filled in as the harness is built)*
-
 **D1.6 openbox runs as the window manager and every app window is forced to a
 fixed geometry by `tasks/workspace.py`.** Without a WM, GTK windows never take
 focus and dialogs pile up at 0,0, so neither coordinates nor focus are
@@ -80,7 +76,7 @@ deletes the four applications' config/cache/session trees and rebuilds the
 workspace fixtures. It was needed immediately: mousepad's "restore previous
 session?" modal blocked the second run of the very first test.
 
-## D3 — Observer
+## D3 — Observer and experiment design
 
 **D3.1 Element ids are derived in four tiers (toolkit accessible-id →
 parent+role+name → parent+role+child-index → parent+role+quantised position),
