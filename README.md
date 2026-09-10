@@ -54,7 +54,8 @@ arms/        the three (four) observation channels — the independent variable
 tasks/       task definitions, programmatic verifiers, deterministic reset
 runner/      the shared agent loop, the model channel, the experiment driver
 analysis/    aggregation into RESULTS.md with bootstrap intervals
-tests/       the id-stability gate
+tests/       the id-stability gate; positive and negative controls on
+             every filesystem-reading verifier
 scripts/     desktop bring-up and the environment gate check
 ```
 
@@ -95,12 +96,22 @@ set -a; source /tmp/grid-env/env.sh; set +a
 # 3. gate check: element ids must survive a repaint
 /usr/bin/python3.12 tests/test_id_stability.py
 
+# 3b. gate check: every verifier accepts a correct end state and rejects an
+#     untouched one (no desktop needed)
+/usr/bin/python3.12 tests/test_verifiers.py
+
 # 4. the experiment (interleaved, resumable, stops at 85% of budget)
 /usr/bin/python3.12 runner/experiment.py --arms A,B,C --reps 3 --tag main
 
 # 5. the tables
 /usr/bin/python3.12 analysis/aggregate.py --raw results/raw/main.jsonl --out RESULTS.md
 ```
+
+Aggregation applies one documented correction on the way in: `calc_total` was
+scored against a total no correct answer produces, so `analysis/rescore.py`
+re-scores the 11 runs it mis-judged from the file contents the broken verifier
+recorded (DECISIONS D6.1). The raw JSONL is never edited, and
+`aggregate.py --no-rescore` reproduces the original, wrong figures.
 
 Useful flags on `runner/experiment.py`:
 
@@ -112,6 +123,9 @@ Useful flags on `runner/experiment.py`:
 | `--token-budget N` | per-run token ceiling, for the equal-budget comparison |
 | `--deadline-utc T` | stop at a wall-clock time |
 | `--max-usd X` | stop at 85 % of this spend |
+
+`analysis/aggregate.py` and `analysis/report_numbers.py` both take
+`--no-rescore`, which reports the success flags exactly as they were recorded.
 
 Re-running the same `--tag` resumes: completed runs are skipped, and runs that
 ended in a provider rate limit or a harness error are retried.
@@ -128,9 +142,11 @@ action trace and the verifier's reason.
 
 ## Tasks
 
-14 of the 16 defined tasks are run (DECISIONS D4.5). Every one ends in a
+16 of the 18 defined tasks are run (DECISIONS D4.5, D5.2). Every one ends in a
 machine check of final state — a file's bytes, a CSV cell, page state read
-over CDP. **No model judges success anywhere.** Coverage spans file
+over CDP. **No model judges success anywhere.** `tests/test_verifiers.py` holds each
+verifier to a positive and a negative control, so a check that cannot be
+satisfied cannot masquerade as a hard task (DECISIONS D6). Coverage spans file
 operations, text editing and formatting, spreadsheet work, a browser form, a
 cross-application task, and three deliberately non-textual tasks (a bar chart,
 a count of filled circles, colour-coded status badges) that exist to separate

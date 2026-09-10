@@ -18,6 +18,12 @@ import statistics as st
 import sys
 from collections import defaultdict
 
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
+from analysis import rescore  # noqa: E402
+
 BOOT = 5000
 ARMS_ORDER = ["A", "B", "C", "D"]
 
@@ -376,12 +382,19 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--raw", nargs="*", default=["results/raw/main.jsonl"])
     ap.add_argument("--out", default="RESULTS.md")
+    ap.add_argument("--no-rescore", action="store_true",
+                    help="report the success flags exactly as they were "
+                         "recorded, including the ones a broken verifier got "
+                         "wrong (see analysis/rescore.py)")
     args = ap.parse_args()
 
     rows = load(args.raw)
     if not rows:
         print("no data", file=sys.stderr)
         return 1
+    corrections = []
+    if not args.no_rescore:
+        rows, corrections = rescore.apply(rows)
     good, dropped = usable(rows)
 
     arms_present = sorted({r["arm"] for r in good})
@@ -407,6 +420,36 @@ def main():
     body.append(f"- measured API spend on the experiment: **${total_cost:.2f}**")
     body.append("- intervals are 95 % bootstrap percentile intervals over runs "
                 f"({BOOT:,} resamples)\n")
+
+    if corrections:
+        counts = rescore.summarise(corrections)
+        body.append("### Re-scored runs\n")
+        body.append("`calc_total`'s verifier searched for the string `48.5`. "
+                    "The total the task asks for is 1.5 + 3.25 + 7.0 = "
+                    "**11.75**, so no correct answer could ever satisfy it and "
+                    "every run that did the task properly was recorded as a "
+                    "failure. The raw JSONL is left untouched; "
+                    "`analysis/rescore.py` recovers the bytes each agent "
+                    "actually produced — the broken verifier preserved them "
+                    "verbatim inside its own failure message — and puts them "
+                    "through the fixed rule. Pass `--no-rescore` to reproduce "
+                    "the original, wrong figures.\n")
+        body.append("| Outcome | n |")
+        body.append("|---|---|")
+        for k, n in sorted(counts.items()):
+            body.append(f"| {k} | {n} |")
+        by_arm = defaultdict(int)
+        for c in corrections:
+            if c["outcome"] == "false negative corrected":
+                by_arm[c["arm"]] += 1
+        if by_arm:
+            body.append("")
+            body.append("Corrections per arm: " +
+                        ", ".join(f"**{a}** +{n}"
+                                  for a, n in sorted(by_arm.items())) +
+                        ". Every arm is affected, so no comparison below "
+                        "changes direction; the absolute success rates rise.")
+        body.append("")
 
     if dropped:
         rc = defaultdict(int)

@@ -181,12 +181,45 @@ def _calc_export_check(rel, checks):
     return checks(rows, c)
 
 
+# The total `calc_total` asks for: the price column, 1.5 + 3.25 + 7.0.
+CALC_TOTAL_EXPECTED = 11.75
+
+
+def _cells(text):
+    """Every cell of a CSV as a raw string, however the sheet quoted it."""
+    return [c for row in csv.reader(io.StringIO(text or "")) for c in row]
+
+
+def calc_total_ok(text):
+    """The rule `calc_total` is scored on.
+
+    A module-level predicate rather than a closure because the re-scoring pass
+    in `analysis/rescore.py` has to apply exactly this rule to the runs the
+    earlier, broken version mis-judged; the rule must live in one place or the
+    two can drift. See DECISIONS D6.1 for what that version got wrong.
+
+    A decimal comma counts: LibreOffice writes one under some locales, and the
+    task is about the arithmetic, not the separator.
+    """
+    if text is None:
+        return False, "data/values-total.csv does not exist"
+    flat = _norm(text)
+    missing = [it for it in ("pens", "pads", "ink") if it not in flat]
+    if missing:
+        return False, f"original item rows {missing} lost: {text[:120]!r}"
+    for cell in _cells(text):
+        try:
+            value = float(cell.strip().replace(",", "."))
+        except ValueError:
+            continue
+        if abs(value - CALC_TOTAL_EXPECTED) < 0.005:
+            return True, "ok"
+    return False, f"total {CALC_TOTAL_EXPECTED} not found in {text[:120]!r}"
+
+
 def t_calc_cell_verify():
     def chk(rows, raw):
-        flat = _norm(raw)
-        if "48.5" not in flat.replace(",", "."):
-            return False, f"total 48.5 not found in {raw[:120]!r}"
-        return True, "ok"
+        return calc_total_ok(raw)
     return _calc_export_check("data/values-total.csv", chk)
 
 
