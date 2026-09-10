@@ -164,8 +164,13 @@ def run_one(task, arm_name, seed, model="sonnet", crop_ttl=3,
             rec["steps"] = step
 
             if token_budget is not None:
+                # Budget on *fresh* tokens: input + cache-write + output. A
+                # cache read is neither work the provider redid nor a cost the
+                # user pays at full rate, so charging it here would bill the
+                # append-only arms for the very thing that makes them cheap
+                # and would decide the comparison by choice of denominator.
                 spent = (rec["tokens_in"] + rec["tokens_out"]
-                         + rec["tokens_cached"] + rec["tokens_cache_create"])
+                         + rec["tokens_cache_create"])
                 if spent > token_budget:
                     rec["terminated"] = "token_budget"
                     rec["steps_detail"].append(

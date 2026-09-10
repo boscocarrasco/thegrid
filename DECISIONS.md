@@ -205,3 +205,16 @@ amounted to choosing the result.
 **D5.5 Both universally-failing tasks (`calc_total`, `cross_report_summary`)
 are retained.** They discriminate nothing and depress every arm equally, but
 dropping tasks after seeing which ones failed is how results get manufactured.
+
+**D5.6 The enforced equal-budget sweep budgets on *fresh* tokens (input +
+cache-write + output), not on raw totals.** A cache read is neither work the
+provider redid nor a cost the user pays at full rate, so charging it would
+bill the append-only arms for precisely the thing that makes them cheap. The
+post-hoc tables in RESULTS §5 report all three denominators because the winner
+changes with the choice, and this is stated rather than resolved silently.
+
+**D5.7 The enforced sweep uses a single ceiling (8,000 fresh tokens) on a
+9-task subset, 81 runs.** One ceiling is enough to answer "does the ordering
+change when budget binds" — it does, decisively — but not enough to map how
+the advantage varies with the budget; no ceiling sweep was run, and the report
+says so.

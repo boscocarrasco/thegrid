@@ -334,6 +334,29 @@ def table_equal_budget_cost(rows, budgets=(0.02, 0.04, 0.06, 0.10)):
     return "\n".join(out)
 
 
+def table_enforced_budget(rows):
+    """The equal-budget comparison run properly: the ceiling was enforced
+    *during* each run and the step limit doubled, so an arm with budget left
+    could spend it on more steps instead of being capped by steps instead."""
+    g = by_arm(rows)
+    arms = [a for a in ARMS_ORDER if a in g]
+    budget = next((r.get("token_budget") for r in rows if r.get("token_budget")),
+                  None)
+    out = [f"Fresh-token ceiling enforced per run: **{budget:,}**; every task's "
+           f"step limit doubled so a cheaper arm can convert surplus budget "
+           f"into extra steps.\n",
+           "| Arm | n | Success rate | Runs stopped by the budget | Steps / task |",
+           "|---|---|---|---|---|"]
+    for a in arms:
+        rs = g[a]
+        sr = boot_ci([1.0 if r["success"] else 0.0 for r in rs])
+        hit = sum(1 for r in rs if r["terminated"] == "token_budget")
+        stp = boot_ci([r["steps"] for r in rs])
+        out.append(f"| {ARM_LABEL[a]} | {len(rs)} | {ci_str(sr, 3)} | "
+                   f"{hit}/{len(rs)} | {ci_str(stp, 1)} |")
+    return "\n".join(out)
+
+
 def comparisons(rows):
     """Explicit, interval-aware verdicts for the three report questions."""
     g = by_arm(rows)
@@ -376,6 +399,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--raw", nargs="*", default=["results/raw/main.jsonl"])
     ap.add_argument("--out", default="RESULTS.md")
+    ap.add_argument("--eqb", nargs="*", default=["results/raw/eqbudget.jsonl"],
+                    help="raw JSONL from the enforced equal-budget sweep")
     args = ap.parse_args()
 
     rows = load(args.raw)
@@ -441,6 +466,12 @@ def main():
     body.append("\n**(c) budget on money**, which is the measure a user "
                 "actually pays:\n")
     body.append(table_equal_budget_cost(good))
+    eqb_rows, _ = usable(load(args.eqb))
+    if eqb_rows:
+        body.append("\n**(d) budget enforced during the run** — a separate "
+                    "sweep, not a reclassification of the runs above:\n")
+        body.append(table_enforced_budget(eqb_rows))
+
     body.append("\n## 6. Non-textual tasks vs the rest\n")
     body.append("Both groups carry information only in pixels, but only the "
                 "first puts it in a change that happens *during* the task, "

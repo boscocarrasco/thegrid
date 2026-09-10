@@ -6,7 +6,8 @@ runs; the repository runs from scratch following the README.
 Wall clock started 2026-09-10 04:25 UTC, finished ~14:25 UTC. The session was
 **rate-limited and idle from ~06:15 to ~12:20 UTC**, so elapsed time (~10 h)
 and time actually worked (~4 h) differ by about six hours; budget was tracked
-against time worked (DECISIONS D4.1). Experiment spend: **$14.72 of $40**.
+against time worked (DECISIONS D4.1). Experiment spend: **$16.83 of $40** (199 main runs + an 81-run
+enforced-equal-budget sweep).
 
 | # | Milestone | State | Notes |
 |---|---|---|---|
@@ -91,18 +92,23 @@ Two gaps in the first report were worth more than any new feature (D5):
 * **Two new tasks were added** because the original three non-textual tasks
   were all answerable from the anchor screenshot, so arm B emitted zero crops
   and B/C were identical by construction. The replacements put the decisive
-  fact in a mid-task appearance change. Result: **B 6/6, C 0/6** — the
-  sharpest separation in the experiment.
+  fact in a mid-task appearance change. Result: **B 8/8, C 1/8**.
+* **The equal-budget comparison was run properly**, with the ceiling enforced
+  during each run and the step limit doubled so a cheaper arm could spend its
+  surplus on steps. This produced the experiment's clearest result: at 8,000
+  fresh tokens per task, **B 27/27 against the baseline's 17/27**, intervals
+  not overlapping, with the baseline running out of budget in 16 of 27 runs.
 
 ## What is still not done, and why
 
 * **Compaction and crop-ageing were never exercised** — tasks run 7–10 steps
   and both need longer horizons. This matters: they are the remedy for the
   tool arms' one clear weakness (4× total tokens).
-* **Equal-budget comparison is post-hoc**, not a fresh enforced-budget sweep.
 * **Uncovered changed regions not detected** (D4.8) — hit directly while
   building the new tasks, see D5.3.
 * **2 of 16 tasks fail on nearly every arm** (`calc_total` 0/12,
   `cross_report_summary` 1/12); retained rather than dropped after the fact.
 * **The vdelta result rests on two tasks**, and how common that task class is
   in real work was not measured.
+* **The enforced equal-budget sweep uses one ceiling** (8,000 fresh tokens) on
+  a 9-task subset; no sweep across ceilings was run.

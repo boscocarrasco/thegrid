@@ -9,7 +9,7 @@ This repository contains two things:
    pixels of changed regions, and executes actions addressed by element id
    with validation at the instant of acting.
 
-2. **An experiment that tests whether it is worth it**, comparing three
+2. **An experiment that tests whether it is worth it**, comparing four
    observation channels under otherwise identical conditions.
 
 The hypothesis under test: *an agent performs better and costs less if,
@@ -20,7 +20,7 @@ Results are in **[RESULTS.md](RESULTS.md)** (generated from data, never typed
 by hand) and **[REPORT.md](REPORT.md)**. Decisions taken autonomously are in
 **[DECISIONS.md](DECISIONS.md)**; progress in **[PROGRESS.md](PROGRESS.md)**.
 
-## The three arms
+## The four arms
 
 Everything is held constant — model, system prompt skeleton, task set, step
 limit, executor, verifier, debounce, seeds — except the observation channel.
@@ -31,7 +31,7 @@ limit, executor, verifier, debounce, seeds — except the observation channel.
 | **A** baseline | task + full screenshot | full screenshot | pixel coordinates |
 | **B** crop-priority | task + full element table + anchor screenshot | verb delta **+ a labelled pixel crop of every changed region** | element id |
 | **C** text-priority | same as B | verb delta, **text only**; a crop only where the tree genuinely cannot describe the change | element id |
-| **D** ablation (optional) | same as B | full table + full screenshot, no deltas | element id |
+| **D** ablation | same as B | full table + full screenshot, no deltas | element id |
 
 Arm B's crop rule follows the specification exactly: `added` yes, `state` yes,
 `changed` non-textual yes, `changed` text-only no, `moved` no, `removed` no.
@@ -50,7 +50,7 @@ observer/    element table from AT-SPI2, stable ids, verb deltas,
              labelled region crops, screen-stability debounce
 executor/    XTEST actions; click(id) re-reads the element at the instant of
              acting and aborts on a stale belief
-arms/        the three (four) observation channels — the independent variable
+arms/        the four observation channels — the independent variable
 tasks/       task definitions, programmatic verifiers, deterministic reset
 runner/      the shared agent loop, the model channel, the experiment driver
 analysis/    aggregation into RESULTS.md with bootstrap intervals
@@ -96,10 +96,26 @@ set -a; source /tmp/grid-env/env.sh; set +a
 /usr/bin/python3.12 tests/test_id_stability.py
 
 # 4. the experiment (interleaved, resumable, stops at 85% of budget)
-/usr/bin/python3.12 runner/experiment.py --arms A,B,C --reps 3 --tag main
+#    this is exactly what produced results/raw/*.jsonl
+TASKS=files_save_as,files_new_note,files_rename,text_append,text_replace,\
+text_delete_line,text_uppercase,calc_total,calc_add_row,web_form,\
+visual_chart,visual_shapes,visual_badge,cross_report_summary
 
-# 5. the tables
-/usr/bin/python3.12 analysis/aggregate.py --raw results/raw/main.jsonl --out RESULTS.md
+/usr/bin/python3.12 runner/experiment.py --arms A,B,C --tasks "$TASKS" \
+    --reps 3 --tag main
+/usr/bin/python3.12 runner/experiment.py --arms D --tasks "$TASKS" \
+    --reps 3 --tag armd
+/usr/bin/python3.12 runner/experiment.py --arms A,B,C,D \
+    --tasks vdelta_rows,vdelta_bars --reps 3 --tag vdelta
+
+# 5. the tables (RESULTS.md is generated; never edit it by hand)
+/usr/bin/python3.12 analysis/aggregate.py \
+    --raw results/raw/main.jsonl results/raw/armd.jsonl results/raw/vdelta.jsonl \
+    --out RESULTS.md
+
+# every figure REPORT.md quotes, recomputed from the raw data
+/usr/bin/python3.12 analysis/report_numbers.py \
+    --raw results/raw/main.jsonl results/raw/armd.jsonl results/raw/vdelta.jsonl
 ```
 
 Useful flags on `runner/experiment.py`:
@@ -128,13 +144,18 @@ action trace and the verifier's reason.
 
 ## Tasks
 
-14 of the 16 defined tasks are run (DECISIONS D4.5). Every one ends in a
+16 of the 18 defined tasks are run (DECISIONS D4.5). Every one ends in a
 machine check of final state — a file's bytes, a CSV cell, page state read
 over CDP. **No model judges success anywhere.** Coverage spans file
 operations, text editing and formatting, spreadsheet work, a browser form, a
-cross-application task, and three deliberately non-textual tasks (a bar chart,
-a count of filled circles, colour-coded status badges) that exist to separate
-arm B from arm C.
+cross-application task, and two groups of non-textual tasks:
+
+* three *anchor-solvable* ones (bar chart, filled-circle count, colour badges)
+  — answerable from the opening screenshot, so they turned out **not** to test
+  arm B against arm C at all;
+* two *mid-task appearance change* ones (`vdelta_rows`, `vdelta_bars`), where
+  the decisive fact appears during the task and is carried only by appearance.
+  These are the ones that separate B from C, 6/6 against 0/6.
 
 Each run starts from a deterministic reset: every application is killed, the
 four applications' config/cache/session trees are wiped, the workspace
