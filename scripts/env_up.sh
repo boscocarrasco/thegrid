@@ -27,6 +27,14 @@ xdpyinfo >/dev/null 2>&1 || { echo "FATAL: Xvfb did not come up"; exit 1; }
 eval "$(dbus-launch --sh-syntax)"
 echo "$DBUS_SESSION_BUS_PID" > "$RUNDIR/dbus.pid"
 
+# ---- window manager ----
+# Without one, GTK windows never take focus and dialogs stack at 0,0, which
+# makes coordinates and focus non-reproducible between runs.
+pkill -x openbox 2>/dev/null || true
+openbox --sm-disable >"$RUNDIR/openbox.log" 2>&1 &
+echo $! > "$RUNDIR/openbox.pid"
+sleep 1
+
 # ---- accessibility stack ----
 export GTK_MODULES=gail:atk-bridge
 export QT_ACCESSIBILITY=1

@@ -67,3 +67,41 @@ a threat to validity because it is not 0.
 ## D3 — Experiment design
 
 *(filled in as the harness is built)*
+
+**D1.6 openbox runs as the window manager and every app window is forced to a
+fixed geometry by `tasks/workspace.py`.** Without a WM, GTK windows never take
+focus and dialogs pile up at 0,0, so neither coordinates nor focus are
+reproducible between runs — which would confound arm comparisons.
+
+**D1.7 Reproducible initial state comes from a scripted wipe
+(`tasks.workspace.reset`), not a container snapshot.** No snapshot/fork
+primitive is available in this container; instead the reset kills every app,
+deletes the four applications' config/cache/session trees and rebuilds the
+workspace fixtures. It was needed immediately: mousepad's "restore previous
+session?" modal blocked the second run of the very first test.
+
+## D3 — Observer
+
+**D3.1 Element ids are derived in four tiers (toolkit accessible-id →
+parent+role+name → parent+role+child-index → parent+role+quantised position),
+not from the spec's position hash alone.** The requirement is stability; the
+earlier tiers survive both repaints and moves, and the position hash is kept
+only as the last-resort tier.
+
+**D3.2 Roles whose name is a document title (frame, dialog, page tab,
+panel, …) are identified structurally, never by name.** Found by the stability
+test: typing one character renames the frame from `Untitled 1 - Mousepad` to
+`*Untitled 1 - Mousepad`, and because ids chain through the parent this
+re-keyed *every* descendant — 200 % churn. This was a real bug the test
+caught, and it is exactly the failure mode the brief warns makes everything
+downstream noise.
+
+**D3.3 Only elements with `showing` state and a non-empty on-screen bbox enter
+the table.** Closed menus expose ~219 menu items over AT-SPI; listing them
+would put items on the table that the agent cannot click and would swamp the
+delta.
+
+**D3.4 The anchor capture is downscaled to 1280×720 (~1228 image tokens).**
+Matches the 1–1.5 k per-capture figure the design doc assumes and is the
+resolution class standard computer-use loops use; crops are sent at native
+resolution since they are small (a typical button crop is ~16 tokens).
