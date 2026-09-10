@@ -334,6 +334,65 @@ def table_equal_budget_cost(rows, budgets=(0.02, 0.04, 0.06, 0.10)):
     return "\n".join(out)
 
 
+def table_compaction(rows):
+    """Did compaction actually fire, and what did it cost or save?"""
+    g = by_arm(rows)
+    arms = [a for a in ARMS_ORDER if a in g]
+    out = ["| Arm | n | Steps / task | Compactions / task | Runs that compacted "
+           "| Crops emitted / task | Crops aged out / task | Cache hit share |",
+           "|---|---|---|---|---|---|---|---|"]
+    rows = [r for r in rows if compaction_on(r)]
+    g = by_arm(rows)
+    arms = [a for a in ARMS_ORDER if a in g]
+    for a in arms:
+        rs = g[a]
+        comp = boot_ci([r.get("compactions", 0) for r in rs])
+        fired = sum(1 for r in rs if r.get("compactions", 0) > 0)
+        emit = boot_ci([r.get("crops_emitted", 0) for r in rs])
+        aged = boot_ci([r.get("crops_aged", 0) for r in rs])
+        stp = boot_ci([r["steps"] for r in rs])
+        tot_in = sum(r["tokens_cached"] + r["tokens_cache_create"] + r["tokens_in"]
+                     for r in rs)
+        hit = (sum(r["tokens_cached"] for r in rs) / tot_in) if tot_in else 0
+        out.append(f"| {ARM_LABEL[a]} | {len(rs)} | {ci_str(stp, 1)} | "
+                   f"{ci_str(comp, 2)} | {fired}/{len(rs)} | {ci_str(emit, 1)} | "
+                   f"{ci_str(aged, 1)} | {fmt(100 * hit, 1)}% |")
+    return "\n".join(out)
+
+
+def compaction_on(r):
+    """Was compaction active for this run?
+
+    Runs made before the control condition existed do not carry the flag; for
+    those the tag says it, since the control sweep has its own tag.
+    """
+    if "compaction_enabled" in r:
+        return bool(r["compaction_enabled"])
+    return "nocompact" not in (r.get("run_tag") or "")
+
+
+def table_compaction_effect(rows):
+    """Same arms, same tasks, compaction on vs off."""
+    on = [r for r in rows if compaction_on(r)]
+    off = [r for r in rows if not compaction_on(r)]
+    if not on or not off:
+        return ""
+    out = ["| Arm | compaction | n | Success | Total tokens / task | "
+           "Cost / task | Steps / task |", "|---|---|---|---|---|---|---|"]
+    for a in ARMS_ORDER:
+        for label, rs in (("on", [r for r in on if r["arm"] == a]),
+                          ("off", [r for r in off if r["arm"] == a])):
+            if not rs:
+                continue
+            sr = boot_ci([1.0 if r["success"] else 0.0 for r in rs])
+            tk = boot_ci([r["tokens_total"] for r in rs])
+            cs = boot_ci([r["cost_usd"] for r in rs])
+            stp = boot_ci([r["steps"] for r in rs])
+            out.append(f"| {a} | **{label}** | {len(rs)} | {ci_str(sr, 3)} | "
+                       f"{ci_str(tk, 0)} | {ci_str(cs, 4)} | {ci_str(stp, 1)} |")
+    return "\n".join(out)
+
+
 def table_enforced_budget(rows):
     """The equal-budget comparison run properly: the ceiling was enforced
     *during* each run and the step limit doubled, so an arm with budget left
@@ -471,6 +530,21 @@ def main():
         body.append("\n**(d) budget enforced during the run** — a separate "
                     "sweep, not a reclassification of the runs above:\n")
         body.append(table_enforced_budget(eqb_rows))
+
+    long_rows = [r for r in good if "long" in r.get("tags", [])]
+    if long_rows:
+        body.append("\n## 5b. Long tasks: compaction and crop ageing\n")
+        body.append("Compaction is what bounds an append-only context. These "
+                    "tasks are long enough (step limit 40) to trigger it at "
+                    "natural boundaries — an application change, a dialog "
+                    "opening or closing — and on the re-anchor interval.\n")
+        body.append(table_compaction(long_rows))
+        eff = table_compaction_effect(long_rows)
+        if eff:
+            body.append("\n**Compaction on vs off**, same arms and tasks:\n")
+            body.append(eff)
+        body.append("\n**Long tasks only, headline:**\n")
+        body.append(table_headline(long_rows))
 
     body.append("\n## 6. Non-textual tasks vs the rest\n")
     body.append("Both groups carry information only in pixels, but only the "

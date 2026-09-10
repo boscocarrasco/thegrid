@@ -80,6 +80,9 @@ def main():
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--model", default="sonnet")
     ap.add_argument("--crop-ttl", type=int, default=3)
+    ap.add_argument("--no-compaction", action="store_true",
+                    help="control condition: run the tool arms without "
+                         "compaction, to attribute what it saves")
     ap.add_argument("--out", default="results/raw")
     ap.add_argument("--tag", default="main")
     ap.add_argument("--max-usd", type=float,
@@ -152,7 +155,8 @@ def main():
         rec = run_one(task, p["arm"], p["seed"], model=args.model,
                       crop_ttl=args.crop_ttl, out_dir=args.out,
                       run_tag=args.tag, token_budget=args.token_budget,
-                      step_limit=step_limit)
+                      step_limit=step_limit,
+                      compaction=not args.no_compaction)
         rec_rep = p["rep"]
         # stamp the rep so resume can identify it
         with open(path, "r") as f:

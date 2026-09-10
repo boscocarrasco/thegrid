@@ -100,7 +100,11 @@ class Channel:
 
     def __init__(self, crop_ttl: int = 3):
         self.crop_ttl = crop_ttl
-        self.live_crops = []   # (step_emitted, eid, description)
+        self.live_crops = []       # (step_emitted, eid, description)
+        self.last_compaction = 0
+        self.compactions = 0
+        self.crops_aged = 0
+        self.crops_emitted = 0
 
     def action_rules(self):
         return ACTION_RULES_ID if self.addressing == "id" else ACTION_RULES_XY
@@ -118,16 +122,24 @@ class Channel:
     def step(self, task, prev_table, curr_table, last_result, step_no):
         raise NotImplementedError
 
-    # ---- crop ageing (arms B and C) ----
+    # ---- crop ageing and compaction (arms B, C, D) ----
+
+    # A compaction discards the accumulated transcript and starts again from a
+    # consolidated description of where the agent is. It is what stops an
+    # append-only context from growing without bound, and it is the mechanism
+    # the first round of this experiment never exercised because tasks were
+    # too short to trigger it.
+    compactable = True
+    reanchor_every = 8      # forced re-anchor interval, in steps
+    min_gap = 4             # never compact twice in quick succession
 
     def age_crops(self, step_no):
-        """Returns descriptions of crops that have just aged out.
+        """Crops whose time is up, as (id, description) pairs.
 
-        The context is append-only, so an image already sent cannot be taken
-        back mid-conversation. Ageing is therefore realised at the next
-        compaction boundary (runner restarts the session with the aged
-        transcript); what this returns is the textual replacement that goes
-        into that transcript.
+        A crop stays visible for `crop_ttl` steps. Because the live context is
+        append-only, an image already sent cannot be retracted mid-conversation
+        — so ageing is realised at the next compaction, where the rebuilt
+        transcript carries the crop's text description instead of its pixels.
         """
         keep, aged = [], []
         for (s, eid, desc) in self.live_crops:
@@ -137,6 +149,78 @@ class Channel:
                 keep.append((s, eid, desc))
         self.live_crops = keep
         return aged
+
+    def should_compact(self, step_no, prev_table, curr_table):
+        """Compact at natural boundaries, or on the re-anchor interval.
+
+        Natural boundaries are where the accumulated history has just stopped
+        being worth anything — the application changed, or a dialog opened or
+        closed. Compacting there is cheap in information even though it always
+        costs the cache.
+        """
+        if not self.compactable:
+            return False, ""
+        if step_no - self.last_compaction < self.min_gap:
+            return False, ""
+
+        prev_apps = set(prev_table.app_names) if prev_table else set()
+        curr_apps = set(curr_table.app_names)
+        if prev_apps and curr_apps != prev_apps:
+            return True, "application changed"
+
+        def dialogs(t):
+            return {e.id for e in t.elements
+                    if e.role in ("dialog", "alert", "file chooser")}
+        if prev_table is not None and dialogs(prev_table) != dialogs(curr_table):
+            return True, "dialog opened or closed"
+
+        if step_no - self.last_compaction >= self.reanchor_every:
+            return True, "re-anchor interval"
+        return False, ""
+
+    def compact(self, task, curr_table, history, step_no, reason):
+        """Build the re-anchor message that replaces the whole transcript.
+
+        Per the spec this is the cheap moment to re-anchor, because the prefix
+        has just been thrown away anyway: the agent gets the task again, a
+        consolidated account of what it has already done, the text descriptions
+        of any crops that have aged out, a fresh full element table and a fresh
+        anchor screenshot.
+        """
+        aged = self.age_crops(step_no)
+        a = self._anchor()
+        lines = [f"TASK: {task.prompt}", ""]
+        lines.append(f"[context compacted at step {step_no}: {reason}. The "
+                     f"running history has been replaced by this summary and "
+                     f"a fresh view of the screen.]")
+        lines.append("")
+        if history:
+            lines.append("What you have done so far:")
+            for n, res in history[-14:]:
+                lines.append(f"  step {n}: {res}")
+            lines.append("")
+        if aged:
+            lines.append("Regions you were shown earlier, now described in "
+                         "text instead of pixels:")
+            for eid, desc in aged[-10:]:
+                lines.append(f"  {desc}")
+            lines.append("")
+        lines.append(f"ELEMENTS ({len(curr_table)}):")
+        lines.append(curr_table.render())
+        lines.append("")
+        lines.append(f"Fresh anchor screenshot "
+                     f"({a['size'][0]}x{a['size'][1]}) of the same "
+                     f"{a['native'][0]}x{a['native'][1]} screen:")
+        txt = "\n".join(lines)
+        self.last_compaction = step_no
+        self.compactions += 1
+        self.crops_aged += len(aged)
+        return Observation(
+            blocks=[text_block(txt), image_block(a["b64"])],
+            observation_tokens=count_text_tokens(txt),
+            image_tokens=a["tokens"], n_images=1,
+            note=f"compaction: {reason}",
+        )
 
 
 # --------------------------------------------------------------------- A
@@ -156,6 +240,7 @@ class ArmA(Channel):
     name = "A"
     addressing = "xy"
     stateless = True
+    compactable = False        # it already rebuilds every step
 
     def __init__(self, crop_ttl: int = 3):
         super().__init__(crop_ttl)
@@ -242,6 +327,7 @@ class ArmB(Channel):
             img_tokens += c["tokens"]
             n_img += 1
             self.live_crops.append((step_no, ch.eid, lbl))
+            self.crops_emitted += 1
         return Observation(
             blocks=blocks,
             observation_tokens=count_text_tokens(
@@ -294,6 +380,7 @@ class ArmC(Channel):
             img_tokens += c["tokens"]
             n_img += 1
             self.live_crops.append((step_no, ch.eid, lbl))
+            self.crops_emitted += 1
         return Observation(
             blocks=blocks,
             observation_tokens=count_text_tokens(

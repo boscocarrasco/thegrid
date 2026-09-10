@@ -1,0 +1,10 @@
+#e251cc82171 menu "File" bbox=[0,19,39,25] click=[19,31] enabled
+#e18e907c474 menu "Edit" bbox=[39,19,41,25] click=[59,31] enabled
+#e2becf0c866 menu "Search" bbox=[80,19,60,25] click=[110,31] enabled
+#e64caead66b menu "View" bbox=[140,19,48,25] click=[164,31] enabled
+#ea042d1a7cd menu "Document" bbox=[188,19,83,25] click=[229,31] enabled
+#e4e1d09b7c6 menu "Help" bbox=[271,19,46,25] click=[294,31] enabled
+#ef659f96104 text "" text="alpha one
+alpha two
+alpha three
+" bbox=[1,71,1918,1006] click=[960,574] enabled,focused,editable

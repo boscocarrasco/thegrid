@@ -279,6 +279,53 @@ it. Not investigated further.
 Both failing tasks are retained. Dropping tasks after seeing which ones failed
 is how results get manufactured.
 
+### 2.8 Long tasks: compaction, and where the tool actually pays off
+
+The first round ran 7–10 step tasks, so compaction and crop ageing — the two
+mechanisms that bound an append-only context — never fired, and the tool arms
+were measured without the remedy for their main weakness. Both are now
+implemented and exercised on four tasks with a 40-step limit (17 steps mean).
+
+**Compaction fires as designed.** In 12/12 runs for each tool arm, 1.5–1.6
+times per task, at natural boundaries (application change, dialog opening or
+closing) and on the re-anchor interval. Arm B emitted 13.6 crops per task and
+aged 6.8 of them out into text descriptions; arm C emitted 6.5 and aged 2.8.
+
+**On long tasks the tool wins outright, which it did not on short ones:**
+
+| Long tasks only | A | B | C | D |
+|---|---|---|---|---|
+| Success rate | 0.917 [0.750, 1.000] | **1.000** | **1.000** | **1.000** |
+| Cost / completed task | $0.1814 | **$0.0775** | **$0.0766** | $0.1727 |
+| Cost / task | 0.1663 [0.129, 0.217] | **0.0787 [0.051, 0.108]** | 0.0791 [0.050, 0.111] | 0.1727 |
+| Cache hit share | 10.0 % | 85.2 % | 85.7 % | 78.4 % |
+
+The cost intervals for A and B do not overlap: on tasks of this length the
+tool is **2.3× cheaper per completed task** and finishes everything the
+baseline leaves unfinished. The baseline's cache hit rate collapses to 10 %
+because it rebuilds its transcript every step, and at 17 steps that is 17 full
+screenshots paid for at fresh-input rates.
+
+**But compaction does not save money — it only bounds the context.** Running
+the same arms and tasks with compaction switched off:
+
+| | tokens / task | cost / task |
+|---|---|---|
+| B, compaction **on** | 86,885 | $0.0787 [0.051, 0.108] |
+| B, compaction **off** | 151,945 | $0.0763 [0.045, 0.115] |
+| C, compaction **on** | 88,545 | $0.0791 [0.050, 0.111] |
+| C, compaction **off** | 142,708 | $0.0741 [0.047, 0.105] |
+
+Compaction cuts total tokens **43 %** for B and 38 % for C, and changes cost by
+nothing detectable — if anything it is marginally *more* expensive. The reason
+is visible in the cache column: compacting rebuilds the prefix, so the tokens
+it saves on cheap cache reads come back as expensive cache writes. Its value
+at these lengths is keeping the context bounded and the per-step latency flat,
+not reducing the bill. Whether it pays for itself at 50 or 100 steps, where an
+uncompacted context would eventually stop fitting at all, is not something
+17-step tasks can answer.
+
+
 ---
 
 ## 3. The three questions, answered
@@ -388,11 +435,11 @@ corrected baseline is wrong in some way I have not seen, every A figure moves.
 Its history is textual: a baseline retaining the last 2–3 screenshots would be
 a different and arguably stronger configuration, and was not measured.
 
-**Compaction and crop-ageing were never exercised.** Tasks ran 7–10 steps;
-both mechanisms need longer horizons. The 4× token disadvantage in §2.3 is
-precisely what they exist to fix, so the tool arms are being reported without
-the remedy for their main weakness. The crop-ageing parameter N could not be
-studied at all.
+**Compaction is exercised but only to ~17 steps.** §2.8 shows it firing 1.5×
+per task and cutting tokens 43 %, with no detectable effect on cost. Four long
+tasks at 17 steps mean is not enough to find the length at which an
+uncompacted context stops fitting, which is where compaction should start to
+matter. The crop-ageing TTL was fixed at N=3 throughout and never swept.
 
 **Uncovered changed regions are not detected** (DECISIONS D4.8). Arm C's
 forced-crop rule fires on visual roles and on a failed bbox-honesty check, but

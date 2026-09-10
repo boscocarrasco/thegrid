@@ -764,3 +764,168 @@ SUITE.append(Task(
     tags=("browser", "visual", "vdelta"), apps=("chromium",)))
 
 BY_ID = {t.id: t for t in SUITE}
+
+
+# ==================================================================== long
+# Tasks long enough to exercise compaction and crop ageing. The first round
+# of this experiment ran 7-10 steps, so neither mechanism ever fired and the
+# tool arms were measured without the one thing that bounds their context.
+# These are 25-40 step tasks with several natural boundaries (file dialogs
+# opening and closing, applications changing) so compaction has somewhere
+# sensible to happen.
+
+def t_long_notes_setup(seed):
+    ws.reset()
+    ws.launch_editor()
+
+
+def t_long_notes_verify():
+    want = {"notes/n1.txt": "alpha", "notes/n2.txt": "bravo",
+            "notes/n3.txt": "charlie"}
+    missing = []
+    for rel, content in want.items():
+        c = _read(rel)
+        if c is None:
+            missing.append(f"{rel} missing")
+        elif content not in _norm(c):
+            missing.append(f"{rel} has {c[:30]!r}")
+    if missing:
+        return False, "; ".join(missing)
+    return True, "ok"
+
+
+def t_long_edits_setup(seed):
+    ws.reset({"notes/ledger.txt":
+              "ITEM ONE: 100\nITEM TWO: 200\nITEM THREE: 300\n"
+              "ITEM FOUR: 400\nITEM FIVE: 500\n"})
+    ws.launch_editor(os.path.join(WORK, "notes/ledger.txt"))
+
+
+def t_long_edits_verify():
+    c = _read("notes/ledger.txt")
+    if c is None:
+        return False, "file missing"
+    checks = [("111", "ITEM ONE not changed to 111"),
+              ("222", "ITEM TWO not changed to 222"),
+              ("333", "ITEM THREE not changed to 333"),
+              ("444", "ITEM FOUR not changed to 444")]
+    for token, why in checks:
+        if token not in c:
+            return False, f"{why} (got {c[:90]!r})"
+    if "500" not in c:
+        return False, "ITEM FIVE should have been left alone"
+    return True, "ok"
+
+
+LONGFORM_HTML = """<!doctype html><html><head><meta charset="utf-8">
+<title>Onboarding form</title><style>
+body{font-family:sans-serif;margin:30px;max-width:700px}
+label{display:block;margin:10px 0 3px}
+input,select{font-size:15px;padding:5px;width:300px}
+button{margin-top:16px;font-size:16px;padding:8px 18px}
+#done{margin-top:14px;font-weight:bold;color:#0a0}</style></head><body>
+<h1>Supplier onboarding</h1>
+<form id="f">
+<label for="company">Company</label><input id="company">
+<label for="vat">VAT number</label><input id="vat">
+<label for="contact">Contact name</label><input id="contact">
+<label for="email">Email</label><input id="email">
+<label for="phone">Phone</label><input id="phone">
+<label for="city">City</label><input id="city">
+<label for="postcode">Postcode</label><input id="postcode">
+<label for="country">Country</label>
+<select id="country"><option value="">-- choose --</option>
+<option value="pt">Portugal</option><option value="es">Spain</option>
+<option value="fr">France</option></select>
+<button type="submit" id="submit">Submit</button>
+</form><div id="done"></div>
+<script>
+document.getElementById('f').addEventListener('submit',function(e){
+ e.preventDefault();
+ var d={company:company.value,vat:vat.value,contact:contact.value,
+        email:email.value,phone:phone.value,city:city.value,
+        postcode:postcode.value,country:country.value};
+ document.getElementById('done').textContent='SUBMITTED '+JSON.stringify(d);
+});
+</script></body></html>"""
+
+
+def t_long_form_setup(seed):
+    ws.reset()
+    d = _serve_dir()
+    with open(os.path.join(d, "longform.html"), "w") as f:
+        f.write(LONGFORM_HTML)
+    ws.launch_browser("file://" + os.path.join(d, "longform.html"))
+
+
+def t_long_form_verify():
+    val, err = _cdp_eval("document.getElementById('done').textContent")
+    if val is None:
+        return False, err or "could not read page"
+    if not val.startswith("SUBMITTED"):
+        return False, "form not submitted"
+    flat = val.replace(" ", "").lower()
+    need = [("northwind", "company"), ("es123456", "vat"),
+            ("rosaklein", "contact"), ("rosa@northwind.example", "email"),
+            ("600111222", "phone"), ("valencia", "city"),
+            ("46001", "postcode"), ('"country":"es"', "country")]
+    for token, field in need:
+        if token.replace(" ", "") not in flat:
+            return False, f"{field} wrong or missing in {val[:150]}"
+    return True, "ok"
+
+
+def t_long_transfer_setup(seed):
+    ws.reset({"inbox/figures.txt":
+              "REGION REPORT\nnorth: 41\nsouth: 52\neast: 63\nwest: 74\n"})
+    ws.launch_editor(os.path.join(WORK, "inbox/figures.txt"))
+
+
+def t_long_transfer_verify():
+    c = _read("archive/regions.txt")
+    if c is None:
+        return False, "archive/regions.txt does not exist"
+    got = _norm(c)
+    for n in ("41", "52", "63", "74"):
+        if n not in got:
+            return False, f"value {n} not copied (got {c[:90]!r})"
+    return True, "ok"
+
+
+SUITE.append(Task(
+    "long_three_notes",
+    "Using the text editor, create three separate files and save each one: "
+    f"{WORK}/notes/n1.txt containing the word alpha, "
+    f"{WORK}/notes/n2.txt containing the word bravo, and "
+    f"{WORK}/notes/n3.txt containing the word charlie. "
+    "Each file must contain only its own word.",
+    t_long_notes_setup, t_long_notes_verify, max_steps=40,
+    tags=("files", "long"), apps=("mousepad",)))
+
+SUITE.append(Task(
+    "long_ledger_edits",
+    "The open document lists five items with values. Change ITEM ONE to 111, "
+    "ITEM TWO to 222, ITEM THREE to 333 and ITEM FOUR to 444. Leave ITEM FIVE "
+    "at 500. Then save the file.",
+    t_long_edits_setup, t_long_edits_verify, max_steps=40,
+    tags=("text", "long"), apps=("mousepad",)))
+
+SUITE.append(Task(
+    "long_onboarding_form",
+    "Fill in every field of the supplier onboarding form and submit it. "
+    "Company: Northwind. VAT number: ES123456. Contact name: Rosa Klein. "
+    "Email: rosa@northwind.example. Phone: 600111222. City: Valencia. "
+    "Postcode: 46001. Country: Spain.",
+    t_long_form_setup, t_long_form_verify, max_steps=40,
+    tags=("browser", "form", "long"), apps=("chromium",)))
+
+SUITE.append(Task(
+    "long_region_transfer",
+    "The open document lists four regions with a number each. Create a new "
+    f"file at {WORK}/archive/regions.txt that contains all four numbers "
+    "(41, 52, 63 and 74), one per line, and save it. Leave the original "
+    "document unchanged.",
+    t_long_transfer_setup, t_long_transfer_verify, max_steps=40,
+    tags=("files", "cross-app", "long"), apps=("mousepad",)))
+
+BY_ID = {t.id: t for t in SUITE}

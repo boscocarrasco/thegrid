@@ -79,7 +79,7 @@ def parse_action(text, addressing):
 
 def run_one(task, arm_name, seed, model="sonnet", crop_ttl=3,
             step_limit=None, token_budget=None, out_dir="results/raw",
-            run_tag=""):
+            run_tag="", compaction=True):
     """Execute one (task, arm, seed) run and return its JSONL record."""
     random.seed(seed)
     rec = {
@@ -97,12 +97,19 @@ def run_one(task, arm_name, seed, model="sonnet", crop_ttl=3,
         "cost_usd": 0.0,
         "observe_time_s": 0.0, "act_time_s": 0.0, "debounce_s": 0.0,
         "steps_detail": [], "verify_detail": "", "error": "",
+        "compactions": 0, "crops_emitted": 0, "crops_aged": 0,
+        "compaction_log": [],
         "step_limit": step_limit or task.max_steps,
         "token_budget": token_budget,
         "terminated": "", "crop_ttl": crop_ttl,
     }
     t_run0 = time.time()
     channel = ARMS[arm_name](crop_ttl=crop_ttl)
+    if not compaction:
+        # Control condition: the same arm with the one mechanism that bounds
+        # its context switched off, so its cost can be attributed.
+        channel.compactable = False
+    rec["compaction_enabled"] = bool(compaction and channel.compactable)
     ex = Executor(SCREEN_W, SCREEN_H)
     sess = None
 
@@ -118,14 +125,33 @@ def run_one(task, arm_name, seed, model="sonnet", crop_ttl=3,
         obs = channel.initial(task, cur)
         rec["observe_time_s"] += time.time() - t0
         rec["initial_table_size"] = len(cur)
+        prev_tbl = None
 
         limit = step_limit or task.max_steps
         last_result = "(nothing yet — this is the first step)"
         anchor_scale = (SCREEN_W / 1280.0, SCREEN_H / 720.0)
+        history = []   # (step, result) — what survives a compaction
 
         for step in range(1, limit + 1):
             rec["observation_tokens"] += obs.observation_tokens
             rec["image_tokens"] += obs.image_tokens
+
+            # ---- compaction: the only thing that bounds an append-only
+            # context. Rebuilding the session is exactly the cache
+            # invalidation the design document says compaction costs; the
+            # transcript that replaces it carries a consolidated summary, the
+            # text descriptions of aged-out crops, a fresh table and a fresh
+            # anchor screenshot.
+            if (not getattr(channel, "stateless", False)) and step > 1:
+                do_it, why = channel.should_compact(step, prev_tbl, cur)
+                if do_it:
+                    obs = channel.compact(task, cur, history, step, why)
+                    sess.close()
+                    sess = ModelSession(system, model=model)
+                    rec["compactions"] += 1
+                    rec["compaction_log"].append({"step": step, "reason": why})
+                    rec["observation_tokens"] += obs.observation_tokens
+                    rec["image_tokens"] += obs.image_tokens
 
             if getattr(channel, "stateless", False) and step > 1:
                 # The baseline replaces its screenshot each step, and an
@@ -221,18 +247,22 @@ def run_one(task, arm_name, seed, model="sonnet", crop_ttl=3,
                           "detail": r.detail, "aborted": r.aborted,
                           "grounding_failure": r.grounding_failure}
             rec["steps_detail"].append(detail)
+            history.append((step, last_result[:120]))
 
             # ---- observe: debounce, snapshot, delta ----
             t2 = time.time()
             st = screen.wait_stable(timeout=4.0, quiet=0.3)
             rec["debounce_s"] += st["waited_s"]
             prev = cur
+            prev_tbl = cur
             cur = tbl.snapshot(SCREEN_W, SCREEN_H)
             obs = channel.step(task, prev, cur, last_result, step + 1)
             rec["observe_time_s"] += time.time() - t2
         else:
             rec["terminated"] = "step_limit"
 
+        rec["crops_emitted"] = channel.crops_emitted
+        rec["crops_aged"] = channel.crops_aged
         rec["grounding_failures"] = ex.grounding_failures
         rec["action_aborts"] = ex.action_aborts
         rec["abort_log"] = ex.abort_log[:20]
