@@ -14,6 +14,7 @@ from collections import defaultdict
 
 sys.path.insert(0, __file__.rsplit("/", 2)[0])
 
+from analysis import rescore  # noqa
 from analysis.aggregate import boot_ci, ci_str, load, overlaps, usable  # noqa
 
 
@@ -36,15 +37,25 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--raw", nargs="*", default=["results/raw/main.jsonl"])
     ap.add_argument("--eqb", nargs="*", default=["results/raw/eqbudget.jsonl"])
+    ap.add_argument("--no-rescore", action="store_true",
+                    help="use the success flags exactly as recorded, broken "
+                         "calc_total verifier included")
     args = ap.parse_args()
 
     rows = load(args.raw)
+    corrections = []
+    if not args.no_rescore:
+        rows, corrections = rescore.apply(rows)
     good, dropped = usable(rows)
     g = arm_rows(good)
 
     print("=" * 70)
     print("COUNTS")
     print(f"  recorded={len(rows)} usable={len(good)} excluded={len(dropped)}")
+    if corrections:
+        print(f"  re-scored: " +
+              ", ".join(f"{n} {k}"
+                        for k, n in sorted(rescore.summarise(corrections).items())))
     for a in sorted(g):
         succ = sum(1 for r in g[a] if r["success"])
         print(f"  arm {a}: n={len(g[a])} success={succ} "

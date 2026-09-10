@@ -218,3 +218,55 @@ changes with the choice, and this is stated rather than resolved silently.
 change when budget binds" — it does, decisively — but not enough to map how
 the advantage varies with the budget; no ceiling sweep was run, and the report
 says so.
+
+## D6 — Corrections made after the reports were first published
+
+**D6.1 `calc_total`'s verifier was wrong, and the 11 runs it mis-scored are
+corrected at analysis time rather than by editing the raw data.** The verifier
+searched the saved CSV for the string `48.5`. The total the task asks for is
+the price column, 1.5 + 3.25 + 7.0 = **11.75**, so the check could not be
+satisfied by a correct answer — it was unsatisfiable, not strict. Eleven of the
+twelve runs wrote `,,11.75` into the CSV and saved it exactly as instructed and
+were all recorded as failures; the twelfth (arm D, seed 3293) never created the
+file and is a genuine failure. The first version of REPORT.md read the 0/12 as
+LibreOffice's Save-As dialog defeating every arm, which is the opposite of what
+the runs did.
+
+Three things follow, in order of how much they matter:
+
+* **The raw JSONL is not edited.** It is the evidence, and a results file that
+  can be rewritten when a number is inconvenient is worth nothing. The fix is
+  `analysis/rescore.py`, which recovers the bytes each agent produced — the
+  broken verifier embedded them verbatim in its own failure message — and puts
+  them through the corrected rule. `aggregate.py --no-rescore` reproduces the
+  original, wrong figures exactly, and RESULTS.md states the correction and its
+  per-arm counts in its own section.
+* **The rule lives in one place.** `tasks.suite.calc_total_ok` is called both
+  by the live verifier and by the re-scoring pass, so the two cannot drift. A
+  run is re-scored only where the recovered payload is provably complete; the
+  old message truncated at 120 characters, and anything at that limit is left
+  as recorded and reported as indeterminate rather than resolved by guesswork.
+* **No comparison changes direction.** The bug hit A +3, B +3, C +3, D +2, so
+  it depressed every arm in proportion. Absolute success rates rise by 4–6
+  points (A 0.840→0.900, B 0.820→0.880, C 0.700→0.760, D 0.837→0.878 on the
+  199-run set), the equal-budget tables shift with them, and every conclusion
+  in REPORT.md survives unchanged.
+
+**D6.2 The verifiers were not themselves verified; `tests/test_verifiers.py`
+now does it, with positive and negative controls.** This bug was found by
+reading the code, not by anything in the repository. `tests/test_id_stability.py`
+guarded the observer, but nothing guarded the component that decides what counts
+as success — the one whose silent failure looks exactly like a difficult task.
+
+Each verifier is now exercised twice against a temporary workspace, no desktop
+required: the correct end state is written to disk byte for byte and the
+verifier must accept it (this is what catches an unsatisfiable check), and the
+untouched starting workspace must be rejected (this is what catches a check
+that passes anything). Confirmed against the original rule: the positive
+control fails on it, so the test would have caught D6.1 on the first day.
+
+Twelve of the eighteen verifiers are covered. The six browser tasks read live
+page state over CDP and need a running Chromium, so they are reported as
+uncovered rather than stubbed — a fake browser would only test the fake. That
+gap is real: `vdelta_rows` and `vdelta_bars` carry the sharpest result in the
+experiment and their verifiers have no control behind them.
