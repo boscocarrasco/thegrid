@@ -232,13 +232,26 @@ def table_by_task(rows):
 
 
 def table_visual_split(rows):
-    """Do the non-textual tasks separate B from C, as the design predicts?"""
+    """Do the non-textual tasks separate B from C, as the design predicts?
+
+    Three groups, because the first two are not the same experiment:
+      * `vdelta`  — the decisive fact appears *during* the task and is carried
+                    only by appearance, so it can only arrive in a per-step
+                    crop. This is the group that actually tests B vs C.
+      * `visual`  — non-textual, but answerable from the anchor screenshot
+                    alone, so the per-step channel never mattered.
+      * the rest.
+    """
     out = ["| Group | Arm | n | Success rate | Image tokens / task | Steps |",
            "|---|---|---|---|---|---|"]
-    for label, pred in (("non-textual (chart / shapes / badge)",
-                         lambda r: "visual" in r.get("tags", [])),
-                        ("everything else",
-                         lambda r: "visual" not in r.get("tags", []))):
+    for label, pred in (
+            ("mid-task appearance change (vdelta)",
+             lambda r: "vdelta" in r.get("tags", [])),
+            ("non-textual but anchor-solvable",
+             lambda r: ("visual" in r.get("tags", [])
+                        and "vdelta" not in r.get("tags", []))),
+            ("everything else",
+             lambda r: "visual" not in r.get("tags", []))):
         sub = [r for r in rows if pred(r)]
         for a in ARMS_ORDER:
             rs = [r for r in sub if r["arm"] == a]
@@ -429,9 +442,12 @@ def main():
                 "actually pays:\n")
     body.append(table_equal_budget_cost(good))
     body.append("\n## 6. Non-textual tasks vs the rest\n")
-    body.append("These three tasks (bar chart, filled-circle count, colour "
-                "badges) carry their information only in pixels, so they are "
-                "where crop-priority (B) should beat text-priority (C).\n")
+    body.append("Both groups carry information only in pixels, but only the "
+                "first puts it in a change that happens *during* the task, "
+                "where the per-step channel is the sole way it can arrive. "
+                "The anchor-solvable group is answerable from the opening "
+                "screenshot, so the per-step channel never mattered there and "
+                "arm B emitted no crops at all.\n")
     body.append(table_visual_split(good))
     body.append("\n## 7. Per task\n")
     body.append(table_by_task(good))

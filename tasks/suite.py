@@ -624,3 +624,143 @@ def build_suite():
 
 SUITE = build_suite()
 BY_ID = {t.id: t for t in SUITE}
+
+
+# ================================================ mid-task appearance changes
+# The first three "visual" tasks failed to separate B from C because all of
+# them are answerable from the anchor screenshot alone, so arm B never emitted
+# a single crop. These two put the decisive information in an element that
+# *appears during the task* and whose meaning is carried only by its
+# appearance: the rows all have identical, unremarkable text, and which one
+# matters is encoded in a background colour the accessibility tree does not
+# report. Arm B crops every `added` element and therefore sees it; arm C is
+# told only "added, list item, 'row-3'" and cannot.
+
+ROWS_HTML = """<!doctype html><html><head><meta charset="utf-8">
+<title>Batch status</title><style>
+body{font-family:sans-serif;margin:30px}
+button{font-size:16px;padding:8px 18px}
+#rows{margin-top:18px}
+.r{padding:10px 14px;border:1px solid #bbb;margin:5px 0;width:340px;
+   font-size:16px;background:#f4f4f4}
+.bad{background:#e03030;color:#fff}
+input{font-size:16px;padding:6px;width:180px}
+</style></head><body>
+<h1>Batch status</h1>
+<p>Press Load. Six jobs appear. Exactly one is shown with a red background,
+meaning it failed. Report which one.</p>
+<button id="load">Load</button>
+<div id="rows" role="list"></div>
+<p><label>Failed job: <input id="ans"></label>
+<button id="go">Submit</button></p>
+<div id="out"></div>
+<script>
+var names=['job-alpha','job-bravo','job-charlie','job-delta','job-echo','job-foxtrot'];
+var BAD=3;   // job-delta, encoded only in the colour
+document.getElementById('load').onclick=function(){
+  var c=document.getElementById('rows'); c.innerHTML='';
+  names.forEach(function(n,i){
+    var d=document.createElement('div');
+    d.className='r'+(i===BAD?' bad':''); d.textContent=n;
+    d.setAttribute('role','listitem'); d.setAttribute('aria-label',n);
+    c.appendChild(d);
+  });
+};
+document.getElementById('go').onclick=function(){
+  document.getElementById('out').textContent='FAILED '+
+    document.getElementById('ans').value.trim().toLowerCase();
+};
+</script></body></html>"""
+
+
+def t_rows_setup(seed):
+    ws.reset()
+    d = _serve_dir()
+    with open(os.path.join(d, "rows.html"), "w") as f:
+        f.write(ROWS_HTML)
+    ws.launch_browser("file://" + os.path.join(d, "rows.html"))
+
+
+def t_rows_verify():
+    val, err = _cdp_eval("document.getElementById('out').textContent")
+    if val is None:
+        return False, err or "could not read page"
+    if not val.startswith("FAILED"):
+        return False, "nothing submitted"
+    if "job-delta" not in val:
+        return False, f"wrong job: {val!r} (the red one is job-delta)"
+    return True, "ok"
+
+
+BARS_HTML = """<!doctype html><html><head><meta charset="utf-8">
+<title>Capacity meters</title><style>
+body{font-family:sans-serif;margin:30px}
+button{font-size:16px;padding:8px 18px}
+.row{margin:8px 0;font-size:16px}
+.lbl{display:inline-block;width:110px}
+.bar{display:inline-block;height:20px;background:#3070d0;vertical-align:middle}
+input{font-size:16px;padding:6px;width:180px}
+</style></head><body>
+<h1>Capacity meters</h1>
+<p>Press Measure. Five meters are drawn. Report the name of the one whose bar
+is the longest.</p>
+<button id="go1">Measure</button>
+<div id="bars" role="list"></div>
+<p><label>Longest: <input id="ans"></label><button id="go">Submit</button></p>
+<div id="out"></div>
+<script>
+var data=[['north',90],['south',140],['east',60],['west',320],['central',180]];
+document.getElementById('go1').onclick=function(){
+  var c=document.getElementById('bars'); c.innerHTML='';
+  data.forEach(function(d){
+    var row=document.createElement('div'); row.className='row';
+    row.setAttribute('role','listitem'); row.setAttribute('aria-label',d[0]);
+    var l=document.createElement('span'); l.className='lbl'; l.textContent=d[0];
+    var b=document.createElement('span'); b.className='bar';
+    b.style.width=d[1]+'px';
+    row.appendChild(l); row.appendChild(b); c.appendChild(row);
+  });
+};
+document.getElementById('go').onclick=function(){
+  document.getElementById('out').textContent='LONGEST '+
+    document.getElementById('ans').value.trim().toLowerCase();
+};
+</script></body></html>"""
+
+
+def t_bars_setup(seed):
+    ws.reset()
+    d = _serve_dir()
+    with open(os.path.join(d, "bars.html"), "w") as f:
+        f.write(BARS_HTML)
+    ws.launch_browser("file://" + os.path.join(d, "bars.html"))
+
+
+def t_bars_verify():
+    val, err = _cdp_eval("document.getElementById('out').textContent")
+    if val is None:
+        return False, err or "could not read page"
+    if not val.startswith("LONGEST"):
+        return False, "nothing submitted"
+    if "west" not in val:
+        return False, f"wrong region: {val!r} (longest bar is west)"
+    return True, "ok"
+
+
+SUITE.append(Task(
+    "vdelta_rows",
+    "Press the Load button. Six jobs will appear; exactly one of them is "
+    "shown with a red background, which means it failed. Type the name of "
+    "that failed job into the box and submit it.",
+    t_rows_setup, t_rows_verify, max_steps=14,
+    tags=("browser", "visual", "vdelta"), apps=("chromium",)))
+
+SUITE.append(Task(
+    "vdelta_bars",
+    "Press the Measure button. Five capacity meters will be drawn, each a "
+    "labelled horizontal bar. Work out which one has the longest bar, type "
+    "that name into the box and submit it.",
+    t_bars_setup, t_bars_verify, max_steps=14,
+    tags=("browser", "visual", "vdelta"), apps=("chromium",)))
+
+BY_ID = {t.id: t for t in SUITE}

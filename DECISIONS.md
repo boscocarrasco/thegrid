@@ -167,3 +167,41 @@ previous image invalidates the prefix. That destroyed cache is the mechanism
 the whole comparison is about, so measuring it wrongly would have answered the
 wrong question. Arms B and C were unaffected and their completed runs were
 kept.
+
+## D5 — Rigour work done with the remaining budget
+
+The brief says surplus budget should go to measurement rigour, not scope. The
+main sweep left ~$33 and several hours, and two gaps in the report were worth
+more than any new feature.
+
+**D5.1 Arm D was run after all (48 runs, $6.59), reversing D4.7.** With budget
+left it was the only way to answer "where does the advantage come from". It
+changed the answer materially: the table alone is *not* the mechanism — arm D
+matches the baseline's success rate at 3.0× arm B's cost per completed task,
+so the deltas, not the table, supply the economics.
+
+**D5.2 Two new tasks (`vdelta_rows`, `vdelta_bars`) were added because the
+original three non-textual tasks did not test what they were built to test.**
+All three were answerable from the anchor screenshot alone, so arm B emitted
+zero crops on them and B/C were identical by construction. The new pair puts
+the decisive fact in an element that appears *during* the task and whose
+meaning is carried only by appearance (a red row background; a bar's pixel
+width). Verified before spending: after the triggering click, arm B's rule
+emits 6 crops and arm C's emits 0. Result: B 6/6, C 0/6.
+
+**D5.3 The new tasks give their rows explicit ARIA `list`/`listitem` roles.**
+The first version used plain `<div>`s, which Chromium does not expose over
+AT-SPI at all, so *neither* tool arm saw the rows and the tasks tested nothing.
+That is the unimplemented uncovered-region case (D4.8) rather than the B-vs-C
+question, so the tasks were changed to isolate the intended variable. The
+limitation it exposed is stated in the report rather than papered over.
+
+**D5.4 The equal-budget comparison is reported three ways — raw tokens, fresh
+tokens, and money — because the winner changes with the denominator.** Raw
+totals charge the append-only arms full price for tokens served from cache,
+which reverses the conclusion. Reporting only one of the three would have
+amounted to choosing the result.
+
+**D5.5 Both universally-failing tasks (`calc_total`, `cross_report_summary`)
+are retained.** They discriminate nothing and depress every arm equally, but
+dropping tasks after seeing which ones failed is how results get manufactured.
