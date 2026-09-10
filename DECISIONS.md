@@ -206,6 +206,19 @@ amounted to choosing the result.
 are retained.** They discriminate nothing and depress every arm equally, but
 dropping tasks after seeing which ones failed is how results get manufactured.
 
+**D5.6 The enforced equal-budget sweep budgets on *fresh* tokens (input +
+cache-write + output), not on raw totals.** A cache read is neither work the
+provider redid nor a cost the user pays at full rate, so charging it would
+bill the append-only arms for precisely the thing that makes them cheap. The
+post-hoc tables in RESULTS §5 report all three denominators because the winner
+changes with the choice, and this is stated rather than resolved silently.
+
+**D5.7 The enforced sweep uses a single ceiling (8,000 fresh tokens) on a
+9-task subset, 81 runs.** One ceiling is enough to answer "does the ordering
+change when budget binds" — it does, decisively — but not enough to map how
+the advantage varies with the budget; no ceiling sweep was run, and the report
+says so.
+
 ## D6 — Corrections made after the reports were first published
 
 **D6.1 `calc_total`'s verifier was wrong, and the 11 runs it mis-scored are
@@ -235,9 +248,9 @@ Three things follow, in order of how much they matter:
   as recorded and reported as indeterminate rather than resolved by guesswork.
 * **No comparison changes direction.** The bug hit A +3, B +3, C +3, D +2, so
   it depressed every arm in proportion. Absolute success rates rise by 4–6
-  points (A 0.833→0.896, B 0.812→0.875, C 0.708→0.771, D 0.833→0.875), the
-  equal-budget tables shift with them, and every conclusion in REPORT.md
-  survives unchanged.
+  points (A 0.840→0.900, B 0.820→0.880, C 0.700→0.760, D 0.837→0.878 on the
+  199-run set), the equal-budget tables shift with them, and every conclusion
+  in REPORT.md survives unchanged.
 
 **D6.2 The verifiers were not themselves verified; `tests/test_verifiers.py`
 now does it, with positive and negative controls.** This bug was found by
