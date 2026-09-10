@@ -89,6 +89,11 @@ def main():
                     help="ISO time to stop at, e.g. 2026-09-10T15:30:00")
     ap.add_argument("--token-budget", type=int, default=None,
                     help="per-run token ceiling (equal-budget comparison)")
+    ap.add_argument("--step-mult", type=float, default=1.0,
+                    help="multiply every task's step limit; use with "
+                         "--token-budget so a cheaper arm can actually spend "
+                         "its surplus on extra steps rather than being "
+                         "capped by the step limit instead")
     ap.add_argument("--rate-limit-wait", type=int, default=0,
                     help="seconds to wait and retry when rate limited (0=stop)")
     args = ap.parse_args()
@@ -142,9 +147,12 @@ def main():
 
         task = S.BY_ID[p["task"]]
         t0 = time.time()
+        step_limit = (int(round(task.max_steps * args.step_mult))
+                      if args.step_mult != 1.0 else None)
         rec = run_one(task, p["arm"], p["seed"], model=args.model,
                       crop_ttl=args.crop_ttl, out_dir=args.out,
-                      run_tag=args.tag, token_budget=args.token_budget)
+                      run_tag=args.tag, token_budget=args.token_budget,
+                      step_limit=step_limit)
         rec_rep = p["rep"]
         # stamp the rep so resume can identify it
         with open(path, "r") as f:
