@@ -93,14 +93,38 @@ fewer steps, and it is the task with the deepest menu descent
 the new folder). That is exactly where a table that lists a closed menu's
 accelerators should pay, and it does.
 
-`calc_add_row` is the clearest counter-case: the enrichment makes it *worse*,
-0/5 against B's 1/5, both at the 16-step ceiling. Reading the step traces, the
-agent is not confused by the table — it navigates the sheet correctly and then
-exhausts its steps inside LibreOffice's Save-As dialog, which is the same wall
-B hit in round 1. Nothing in blocks, reachability or accelerators addresses
-that, and the one extra run that scraped a pass in round 1 did not recur. The
-task is retained, and so is `menu_calc_insert_column`, where B+ is nominally
-the slowest of the three arms.
+`calc_add_row` is the clearest counter-case: 0/5 against B's 1/5, both at the
+16-step ceiling. It was audited action by action across all 15 runs (§6), and
+the cause is not the enrichment and not a harness fault. It is a step-ceiling
+artefact of a behavioural difference between the channels:
+
+| | A | B | B+ |
+|---|---|---|---|
+| actions to enter the row | **3** | 6 | 6 |
+| pattern | `type 'tape\t6\t2'`, `Return`, `ctrl+shift+s` | `type 'tape'`, `Tab`, `type '6'`, `Tab`, `type '2'`, `Return` | same as B |
+| result | 5/5 in 9.0 | 1/5 in 16.0 | 0/5 in 16.0 |
+
+The baseline enters the whole row in a single `type` action with embedded tabs.
+Both tool arms address the sheet one cell at a time — the element table hands
+the model a cell to name, so it names cells — spending three extra steps. Those
+three steps are decisive: all nine failing runs terminate at the ceiling inside
+LibreOffice's Save-As → *Use Text CSV Format!* chain, with the identical
+verifier message `data/values-plus.csv does not exist`. B rep 2 cleared that
+chain on step 16 exactly, which is the whole of B's 1/5 against B+'s 0/5.
+
+Two things follow. First, **this is a tool-channel effect, not an enrichment
+effect**: B and B+ produce the same six-action pattern in 5/5 runs each, so the
+task does not discriminate B+ from B, and the 1/5 vs 0/5 gap is one run landing
+on the right side of a ceiling. Second, `max_steps=16` was fixed for this task
+in round 1 and was deliberately **not** changed for round 2. Raising it now,
+having seen which arm it cuts, is exactly the post-hoc adjustment
+`PREDICTIONS.md` exists to prevent. It stays, and the result stands as
+reported. What the finding argues for is a *future* pre-registered change — a
+multi-cell entry action, or a ceiling derived from a per-arm reference
+trajectory rather than a single number — not a retrofit to this round.
+
+The task is retained, and so is `menu_calc_insert_column`, where B+ is
+nominally the slowest of the three arms.
 
 ### Which of the three enrichments does the work?
 
@@ -388,3 +412,77 @@ value is that it is not edited.
 - Four of the round's twelve registered claims are answered, three are answered
   in part, one is falsified outright, and **five were not run and are reported
   as not run**.
+
+## 6. Harness audit of the zero-success cells
+
+Every cell in the round that scored 0/N was audited action by action, to
+separate real task failures from harness faults. The question matters because a
+broken verifier or a crashing executor reads, in the tables above, exactly like
+a hard task — round 1 already produced one unsatisfiable verifier, and this
+round only found it because all 28 verifiers were controlled before any arm ran
+(D7.7).
+
+### Global health, 310 usable runs
+
+| check | count | rate |
+|---|---|---|
+| runs ending with an error field set | **0** | 0 % |
+| executed actions | 2,841 | — |
+| actions refused by act-time validation (`aborted`) | 20 | 0.70 % |
+| grounding failures (a click landing on nothing) | 46 | 1.6 % |
+| malformed model replies | 19 | 0.6 % of steps |
+| `done`-terminated runs the verifier then failed | 1 of 207 | 0.5 % |
+
+No run crashed. Aborts and grounding failures are the mechanisms working as
+designed, not faults: an abort is the id-addressed channel refusing a stale
+element, and grounding failures occur only in arm A, which clicks coordinates.
+
+The 19 malformed replies split **A 12, B 1, B+ 5, C 1, C+ 0** — they are not
+concentrated in the enriched arm, and in every case in a zero-success cell they
+fall in the last steps of a run that was already past saving.
+
+The single `done`-but-failed run is `t3_control B vdelta_bars rep 2`: the agent
+answered `central` and the longest bar is west. Reading the trace, the verifier
+is right and the agent is wrong. No verifier false negative was found.
+
+### The zero cells, one by one
+
+| tier | arm | task | n | terminated | verdict |
+|---|---|---|---|---|---|
+| t1_menu | B+ | `calc_add_row` | 5 | step_limit ×5 | step ceiling, cell-by-cell typing (§1) |
+| t3_control | A | `calc_count_eng` | 5 | step_limit ×5 | hard task — **B is also 0/5** |
+| t3_control | B | `calc_count_eng` | 5 | step_limit ×5 | same |
+| t3_control | A | `cross_report_summary` | 4 | step_limit ×4 | hard task — **all three arms ≤ 1/12** |
+| t3_control | B | `cross_report_summary` | 5 | step_limit ×5 | same |
+| t5_budget_8k | A | `cross_report_summary` | 5 | token_budget ×5 | budget, as designed |
+| t5_budget_8k | A | `files_save_as` | 5 | token_budget ×5 | budget, as designed |
+| t5_budget_8k | B+ | `calc_add_row` | 5 | token_budget ×5 | budget, as designed |
+| t5_budget_8k | B+ | `cross_report_summary` | 5 | token_budget ×5 | budget, as designed |
+| t5_budget_8k | B+ | `files_new_note` | 5 | token_budget ×5 | budget, as designed |
+| t5_budget_30k | A | `cross_report_summary` | 2 | token_budget ×2 | budget, as designed |
+| t5_budget_30k | B+ | `calc_add_row` | 3 | token_budget ×3 | budget, as designed |
+| t5_budget_30k | B+ | `cross_report_summary` | 3 | token_budget ×3 | budget, as designed |
+
+Two readings are worth stating plainly. First, **none of the zero cells is a
+bug**: every one terminates on a resource ceiling — steps or tokens — that the
+experiment sets deliberately, and none on an exception, an unsatisfiable
+verifier, or an executor failure. Second, **the zero cells in the sweep tiers
+are the sweep measuring what it was built to measure.** A cell reading 0/5 at
+an 8,000-token ceiling is the budget result, not a task result; it must not be
+read as the arm being unable to do the task, and the two arms are zero on
+different tasks in the same tier.
+
+`calc_count_eng` and `cross_report_summary` are hard for every arm, not for one
+of them. They are the round's two multi-application tasks and neither the
+baseline nor the tool clears them reliably; they are retained, and their
+difficulty is a fact about the suite rather than a finding about the
+observation layer.
+
+### Rate-limited runs
+
+Three runs hit the per-run rate-limit ceiling and were marked `rate_limited`
+rather than scored as task failures (D7.6). **All three were re-run and all
+three now have a completed replacement** — `C/vdelta_rows/rep2` and
+`C+/vdelta_bars/rep2` in T2 (both `done`), and `B+/cross_report_summary/rep3`
+in the 30,000-token sweep (`token_budget`). No cell in the round is missing a
+replacement, and no run was silently discarded for a rate limit.
