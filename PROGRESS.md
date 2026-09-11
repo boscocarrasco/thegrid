@@ -189,3 +189,55 @@ estimated.** Eight of the twelve registered claims were tested; four were not
 run and are reported as not run. One is falsified: the ambiguity rule the
 design document specifies fired zero times, and the whole vdelta result belongs
 to the peer-set rule added after reading the tree.
+
+---
+
+## Punto de reanudación — 2026-09-11 21:20 UTC
+
+**Nada de lo ya ejecutado debe repetirse, y el arranque lo garantiza solo:**
+`already_done()` (`runner/experiment.py:66`) lee el `.jsonl` de cada tier y
+salta toda celda `(task, arm, rep)` que ya tenga registro; únicamente reintenta
+las marcadas `rate_limited`. Relanzar el driver reanuda, nunca duplica.
+
+### Para retomar
+
+```bash
+bash scripts/round2_supervise.sh        # relanza y vigila scripts/round2_finish.sh
+```
+
+El supervisor existe porque un bloqueo de cuota se lleva por delante el árbol de
+procesos entero; el driver es reanudable, así que la respuesta correcta es
+volver a arrancarlo. El tope global de gasto vive dentro del driver, de modo que
+el supervisor no puede gastar de más.
+
+### Estado de los tiers
+
+| Tier | Estado | Registros |
+|---|---|---|
+| T1 `t1_menu` | **completo** | 105 |
+| T2 `t2_vdelta` | **completo** | 22 |
+| T3 `t3_control` | **completo, grupo de 15 tareas** | 226 |
+| T5 `t5_budget_15k` | **completo, 10 tareas** | 100 |
+| T5 `t5_budget_8k` | 5 tareas completas; ampliación a 10 a medias | 57 |
+| T5 `t5_budget_30k` | 5 tareas completas; ampliación a 10 sin empezar | 51 |
+| T4 `t4_long_full` | **completo** (ventana 2, objeto de tarea on) | 20 |
+| T4 `t4_long_wide` | **completo** (ventana 4, objeto de tarea on) | 20 |
+| T4 `t4_long_notobj` | en curso (ventana 2, objeto de tarea off) | 9 de 20 |
+| T4 `t4_long_base` | sin empezar (brazo A sobre tareas largas) | 0 |
+| T6 `t6_ablation` | sin empezar | 0 |
+
+**616 registros, 4 excluidos por límite de cuota, $62.75 estimados del tope de
+$68.** El orden de los tiers es el congelado en `PREDICTIONS.md` §11 —T3, T4,
+T5, T6—, no el que resulta más interesante ahora que hay resultados.
+
+### Lo que queda por hacer después de las ejecuciones
+
+1. `/usr/bin/python3.12 analysis/aggregate2.py > RESULTS2.md`
+2. Actualizar `REPORT2.md`: T3 completo sustituye a la reducción de 8 tareas,
+   T4 pasa de «no ejecutado» a medido, el barrido cubre tres techos sobre las
+   mismas 10 tareas, y nombrar como no ejecutado lo que el tope haya cortado.
+3. Publicar el artifact (fondo `hsl(0,0%,13%)`, texto en blanco roto,
+   minimalista). Borrador en `scratchpad/ronda2.html`; las 4 figuras de la
+   ronda 1 ya están extraídas en `scratchpad/art/fig1..4.png`.
+   URL a actualizar: `claude.ai/code/artifact/eace4ec6-c06f-474a-8cf1-e5f79b1582b6`
+4. Commit y push a `claude/agent-observation-layer-kynku2`.
