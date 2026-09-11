@@ -270,3 +270,96 @@ page state over CDP and need a running Chromium, so they are reported as
 uncovered rather than stubbed — a fake browser would only test the fake. That
 gap is real: `vdelta_rows` and `vdelta_bars` carry the sharpest result in the
 experiment and their verifiers have no control behind them.
+
+---
+
+## D7 — Round 2: decisions taken without asking
+
+**D7.1 `PREDICTIONS.md` was committed on its own, ahead of every line of
+round-2 code, and has not been edited since.** The brief asks for it; the
+reason it is worth the cost is narrower than "good practice". Round 1 built
+`vdelta_rows` and `vdelta_bars` *after* observing that the three visual tasks
+failed to separate B from C, declared that honestly, and still left a reader
+unable to tell how much of the 8/8-vs-1/8 result was discovery and how much was
+construction. Registering the design first is the only thing that removes that
+doubt, and it only works if the file is untouched afterwards —
+`git log --follow PREDICTIONS.md` is the check.
+
+The file contains one arithmetic slip, left in place rather than corrected:
+§2 says the suite goes "from 22 to 26 (22 short + 4 long, becoming 26 short +
+6 long)" where the true counts are 18 short + 4 long becoming 22 short + 6
+long, and §3.1 calls the 22-item ordering "the 26-task short suite". The
+ordering itself is written out entry by entry and has exactly 22 entries, so
+nothing operative is ambiguous. Fixing the label would have meant editing a
+document whose whole value is that it is not edited.
+
+**D7.2 The enrichment is opt-in, so arm B stays byte-identical to round 1.**
+`snapshot(enrich=False)` produces the same table, the same ids, the same
+rendering and the same deltas as the code that produced round 1's data.
+`TRACKED_STATES` was deliberately *not* extended with `modal` even though
+reachability needs it, because that tuple feeds every arm's change detection
+and adding to it would have quietly made B a different arm. Modal state is read
+separately, in the enrichment pass, on container nodes only.
+
+**D7.3 Keyboard accelerators are read from menus that are closed.** The table
+lists only elements that are `showing`, and a menu's items are not showing
+until it is popped up — so exposing an accelerator only once the menu is open
+would save nothing at all, since the click it replaces has already been spent.
+AT-SPI declares those items and their bindings regardless, so each visible menu
+carries a one-line summary of what is inside it and how to reach it directly.
+This is a deliberate departure from "the table holds what is on screen". It is
+bounded: a summary line attached to a visible element, at most fourteen entries
+per menu, and nothing in it gets an id, because nothing in it can be clicked
+until the menu is open.
+
+**D7.4 The design document's diagnosis of round 1's text-only failure is
+wrong, and the code says so.** §5.2 explains the 1/8 result as six list items
+*sharing a name* — "recibía `+ added list item "job-delta"` seis veces".
+Reading the actual AT-SPI tree for that page, the six rows are named
+`job-alpha` … `job-foxtrot`, all distinct. The same-name rule the document
+specifies never fires there. What the six rows actually share is every
+attribute the tree exposes *except* the name, while the task asks about a
+colour no attribute reports.
+
+Both rules are implemented. `mark_ambiguous` is the registered one, unchanged
+from the specification. `mark_peer_sets` is the second instance of the same
+principle — four to twelve sibling rows of a data role, in one block, with
+disjoint rectangles, identical states, identical text and identical size,
+differing only in name — and it is the one that fires on the vdelta pages.
+Every run records `crops_amb_same_name` and `crops_amb_peer_set` separately, so
+a result can never be credited to the rule that did not fire.
+
+The peer-set rule was written after inspecting the tree and before running
+anything. That is a weaker claim than pre-registration and is reported as such:
+it is not "we saw the outcome and added a rule", but it is also not "we
+predicted this in advance".
+
+**D7.5 The image window is implemented by separating re-anchoring from
+compaction.** Round 1 compacted by rebuilding the session, which destroys the
+cache and resets the live image count to one — so "never more than two full
+screenshots live at once" was satisfied trivially and measured nothing. A
+re-anchor now appends a fresh table and screenshot to the transcript that is
+already there: the prefix is untouched, the cache survives, and a second full
+screenshot goes live. The window is what decides between the two. At a window
+of two the cache is paid for on every other refresh; at four, every fourth.
+That makes it a knob with a measurable cost, which is what experiment 4 needs.
+
+**D7.6 Rate limits are waited out and written into the run record.** A call
+that fails on the provider's quota is retried with exponential backoff
+(30 s, 60, 120, 300, 600, 900, repeating) up to an hour per run, and every wait
+is appended to that run's `rate_limit_waits` with its length and the step it
+happened at. A run that exhausts the backoff is marked `rate_limited`, which is
+excluded from the statistics and is **not** scored as a task failure. Runs lost
+to a quota and not flagged would bias every table toward whichever arm happened
+to be running while the quota was open — which is not a subtle effect when a
+suspension lasts six hours, as one did in round 1.
+
+**D7.7 All 28 verifiers now have positive and negative controls, including the
+seven that read page state over CDP.** Round 1 listed those as uncovered rather
+than fake them, which was the right call then. They are covered now the only
+honest way available: the task's own setup serves and opens the real page, the
+correct answer is submitted into it over the same CDP channel the verifier
+reads back through, and the real verifier is asked. Without a live desktop they
+report as skipped, never as passed. An unsatisfiable verifier reads exactly
+like a hard task — that already happened once, to `calc_total`, and cost eleven
+correct runs.
