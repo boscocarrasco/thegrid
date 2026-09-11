@@ -142,3 +142,25 @@ failure looks exactly like a difficult task.
   in real work was not measured.
 * **The enforced equal-budget sweep uses one ceiling** (8,000 fresh tokens) on
   a 9-task subset; no sweep across ceilings was run.
+
+## Round 2
+
+- [x] `PREDICTIONS.md` written and committed alone, before any round-2 code
+      (commit `5ca982a`). Twelve falsifiable claims, four new menu tasks
+      declared as built to probe the known defect, task-reduction rule written
+      out as a fixed ordering.
+- [x] Layer 1: blocks, reachability, keyboard shortcuts, geometry-based
+      duplicate merge, ambiguity marking (`observer/enrich.py`). All opt-in, so
+      arm B is byte-identical to round 1 and stays a valid control.
+- [x] Block-stability test — PASS at 0% churn across idle, repaint, content
+      change and a modal dialog (`tests/test_block_stability.py`).
+- [x] Arms `B+`, `C+` and three ablations; image window; persistent task
+      object; exponential backoff on provider rate limits with the wait
+      recorded per run.
+- [x] Four menu/dialog tasks and two long tasks with separately checkable
+      constraints. Suite: 22 short + 6 long = 28.
+- [x] Verifier controls for **all 28** tasks, positive and negative, including
+      the 7 that read page state over CDP and were uncovered in round 1.
+- [ ] Checkpoint: two menu tasks end to end on A, B and B+.
+- [ ] Experiments 1-4.
+- [ ] `RESULTS2.md`, `REPORT2.md`, `DECISIONS.md`.

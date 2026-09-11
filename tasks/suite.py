@@ -969,3 +969,265 @@ SUITE.append(Task(
     tags=("files", "cross-app", "long"), apps=("mousepad",)))
 
 BY_ID = {t.id: t for t in SUITE}
+
+
+# ============================================== round 2: menus and dialogs
+#
+# These four tasks were designed to probe the defect round 1 measured: on menu
+# and dialog work the tool arms spend up to 2.5x the steps of the screenshot
+# baseline (REPORT.md §2.7, PREDICTIONS.md Fact 1). They are menu- and
+# dialog-heavy by construction and they were registered in PREDICTIONS.md §2
+# before anything was run. A reader is entitled to discount them for exactly
+# that reason; the control group exists so the discount has somewhere to land.
+#
+# Every one of them is verified from the filesystem, never from the screen.
+
+MENU_REPLACE_SRC = (
+    "PROJECT LOG\n"
+    "draft: opening notes\n"
+    "second line mentions draft twice: draft\n"
+    "closing line\n"
+)
+
+
+def t_menu_replace_setup(seed):
+    ws.reset(extra_files={"notes/log.txt": MENU_REPLACE_SRC})
+    ws.launch_editor(os.path.join(WORK, "notes/log.txt"))
+
+
+def t_menu_replace_verify():
+    c = _read("notes/log.txt")
+    if c is None:
+        return False, "notes/log.txt is gone"
+    if "draft" in c:
+        return False, f"'draft' still present: {c[:120]!r}"
+    if c.count("final") != 3:
+        return False, f"expected 3 occurrences of 'final', got {c.count('final')}"
+    if "PROJECT LOG" not in c or "closing line" not in c:
+        return False, f"surrounding text was damaged: {c[:120]!r}"
+    return True, "ok"
+
+
+def t_menu_save_as_setup(seed):
+    ws.reset()
+    ws.launch_editor(os.path.join(WORK, "notes/beta.txt"))
+
+
+def t_menu_save_as_verify():
+    c = _read("archive/minutes.txt")
+    if c is None:
+        return False, "archive/minutes.txt does not exist"
+    if "beta line" not in c:
+        return False, f"contents not carried over: {c[:80]!r}"
+    orig = _read("notes/beta.txt")
+    if orig is None:
+        return False, "the original notes/beta.txt was removed"
+    if "beta line" not in orig:
+        return False, f"the original was modified: {orig[:80]!r}"
+    return True, "ok"
+
+
+def t_menu_insert_col_setup(seed):
+    ws.reset()
+    ws.launch_calc(os.path.join(WORK, "data/values.csv"))
+
+
+def t_menu_insert_col_verify():
+    c = _read("data/values-tagged.csv")
+    if c is None:
+        return False, "data/values-tagged.csv does not exist"
+    lines = [l for l in c.splitlines() if l.strip()]
+    if len(lines) < 4:
+        return False, f"expected 4 rows, got {len(lines)}: {c[:80]!r}"
+    head = [h.strip().strip('"').lower() for h in lines[0].split(",")]
+    if not head or head[0] != "code":
+        return False, f"first column is not 'code': {lines[0]!r}"
+    if head[1:4] != ["item", "qty", "price"]:
+        return False, f"original columns not preserved: {lines[0]!r}"
+    return True, "ok"
+
+
+def t_menu_new_folder_setup(seed):
+    ws.reset()
+    ws.launch_files(os.path.join(WORK, "inbox"))
+
+
+def t_menu_new_folder_verify():
+    if not _exists("inbox/2026-Q1"):
+        return False, "inbox/2026-Q1 was not created"
+    if not os.path.isdir(os.path.join(WORK, "inbox/2026-Q1")):
+        return False, "inbox/2026-Q1 exists but is not a folder"
+    c = _read("inbox/2026-Q1/report-draft.txt")
+    if c is None:
+        return False, "report-draft.txt is not inside inbox/2026-Q1"
+    if "QUARTERLY REPORT" not in c:
+        return False, f"the moved file is not the right one: {c[:60]!r}"
+    if _exists("inbox/report-draft.txt"):
+        return False, "the file was copied, not moved — it is still in inbox/"
+    return True, "ok"
+
+
+# ================================== round 2: long tasks with explicit constraints
+#
+# Experiment 4 needs to tell "failed the task" apart from "forgot a constraint",
+# which needs constraints that are explicit in the statement and separately
+# checkable. Each of these declares both: the text the persistent task object
+# repeats, and a decomposition the verifier reports one clause at a time.
+
+LEDGER_CSV = (
+    "date,region,amount\n"
+    "2026-02-11,north,120\n"
+    "2026-03-02,north,340\n"
+    "2026-03-08,south,215\n"
+    "2026-04-01,south,190\n"
+    "2026-03-19,east,455\n"
+    "2026-02-27,east,80\n"
+)
+
+
+def t_march_setup(seed):
+    ws.reset(extra_files={"data/ledger.csv": LEDGER_CSV})
+    ws.launch_calc(os.path.join(WORK, "data/ledger.csv"))
+
+
+def _march_checks():
+    out = _read("data/march.csv")
+    checks = {
+        "c4_output_at_named_path": out is not None,
+        "c1_output_is_csv": False,
+        "c2_only_march_rows": False,
+        "c3_original_untouched": _read("data/ledger.csv") == LEDGER_CSV,
+    }
+    if out is not None:
+        rows = [l for l in out.splitlines() if l.strip()]
+        checks["c1_output_is_csv"] = bool(rows) and all("," in r for r in rows)
+        body = [r for r in rows if not r.lower().startswith("date,")]
+        has_all_march = all(any(d in r for r in body)
+                            for d in ("2026-03-02", "2026-03-08", "2026-03-19"))
+        no_others = not any(d in out for d in
+                            ("2026-02-11", "2026-04-01", "2026-02-27"))
+        checks["c2_only_march_rows"] = bool(body) and has_all_march and no_others
+    return checks
+
+
+def t_march_verify():
+    c = _march_checks()
+    bad = [k for k, v in c.items() if not v]
+    if bad:
+        return False, "failed: " + ", ".join(bad)
+    return True, "ok"
+
+
+def t_notes_digest_setup(seed):
+    ws.reset()
+    ws.launch_editor(os.path.join(WORK, "notes/alpha.txt"))
+
+
+_DIGEST_EXPECT = {"alpha": "alpha one", "beta": "beta line",
+                  "gamma": "gamma line"}
+
+
+def _digest_checks():
+    out = _read("notes/digest.txt")
+    checks = {
+        "c1_one_line_per_note": False,
+        "c2_name_colon_firstline": False,
+        "c3_sorted_by_name": False,
+        "c4_originals_intact": all(
+            _read(f"notes/{n}.txt") is not None and
+            _DIGEST_EXPECT[n] in (_read(f"notes/{n}.txt") or "")
+            for n in _DIGEST_EXPECT),
+    }
+    if out is None:
+        return checks
+    lines = [l.strip() for l in out.splitlines() if l.strip()]
+    checks["c1_one_line_per_note"] = len(lines) == 3
+    names = []
+    good = True
+    for l in lines:
+        if ":" not in l:
+            good = False
+            continue
+        n, _, rest = l.partition(":")
+        n = n.strip().lower()
+        names.append(n)
+        if n not in _DIGEST_EXPECT or _DIGEST_EXPECT[n] not in rest:
+            good = False
+    checks["c2_name_colon_firstline"] = good and len(names) == 3
+    checks["c3_sorted_by_name"] = names == sorted(names) and len(names) == 3
+    return checks
+
+
+def t_notes_digest_verify():
+    c = _digest_checks()
+    bad = [k for k, v in c.items() if not v]
+    if bad:
+        return False, "failed: " + ", ".join(bad)
+    return True, "ok"
+
+
+SUITE.append(Task(
+    "menu_replace_all",
+    "In the open text editor, use the Search menu's Find and Replace dialog to "
+    "replace every occurrence of the word draft with the word final, then save "
+    "the file. Leave the rest of the text alone.",
+    t_menu_replace_setup, t_menu_replace_verify, max_steps=16,
+    tags=("text", "menu"), apps=("mousepad",)))
+
+SUITE.append(Task(
+    "menu_save_as_subdir",
+    "In the open text editor, use the File menu's Save As dialog to save the "
+    f"document into the archive folder as minutes.txt (that is "
+    f"{WORK}/archive/minutes.txt). Leave the original file where it is.",
+    t_menu_save_as_setup, t_menu_save_as_verify, max_steps=16,
+    tags=("files", "menu"), apps=("mousepad",)))
+
+SUITE.append(Task(
+    "menu_calc_insert_column",
+    "In the open spreadsheet, use the Sheet menu to insert a new column before "
+    "column A, put the header code in its first cell, and then save the result "
+    f"as {WORK}/data/values-tagged.csv in Text CSV format, keeping the existing "
+    "columns as they are.",
+    t_menu_insert_col_setup, t_menu_insert_col_verify, max_steps=20,
+    tags=("spreadsheet", "menu"), apps=("soffice",)))
+
+SUITE.append(Task(
+    "menu_files_new_folder",
+    "In the open file manager, use the menus to create a folder called 2026-Q1 "
+    "inside the current folder, and then move report-draft.txt into it. Move "
+    "it, do not copy it.",
+    t_menu_new_folder_setup, t_menu_new_folder_verify, max_steps=20,
+    tags=("files", "menu"), apps=("pcmanfm",)))
+
+SUITE.append(Task(
+    "long_march_export",
+    "The open spreadsheet is a ledger. Export only the rows dated in March 2026 "
+    f"to {WORK}/data/march.csv, in CSV format, without modifying the original "
+    "ledger file.",
+    t_march_setup, t_march_verify, max_steps=40,
+    tags=("spreadsheet", "long", "constraints"), apps=("soffice",),
+    constraints=(
+        "the output must be written to data/march.csv",
+        "the output must be in CSV format (comma-separated, one row per line)",
+        "the output must contain the March 2026 rows and no others",
+        "the original data/ledger.csv must not be modified",
+    ),
+    verify_constraints=_march_checks))
+
+SUITE.append(Task(
+    "long_notes_digest",
+    f"The folder {WORK}/notes contains alpha.txt, beta.txt and gamma.txt. "
+    f"Write {WORK}/notes/digest.txt with one line per note, each of the form "
+    "name: first line of that note (for example  alpha: ...), sorted "
+    "alphabetically by name. Do not delete or change the original notes.",
+    t_notes_digest_setup, t_notes_digest_verify, max_steps=40,
+    tags=("files", "text", "long", "constraints"), apps=("mousepad",),
+    constraints=(
+        "digest.txt must contain exactly one line per note, three in total",
+        "each line must read  name: first line of that note",
+        "the lines must be sorted alphabetically by name",
+        "alpha.txt, beta.txt and gamma.txt must be left unchanged",
+    ),
+    verify_constraints=_digest_checks))
+
+BY_ID = {t.id: t for t in SUITE}

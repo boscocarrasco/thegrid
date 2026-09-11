@@ -86,7 +86,8 @@ def main():
     ap.add_argument("--out", default="results/raw")
     ap.add_argument("--tag", default="main")
     ap.add_argument("--max-usd", type=float,
-                    default=float(os.environ.get("MAX_API_SPEND_USD", "40")))
+                    default=float(os.environ.get("MAX_ESTIMATED_SPEND_USD",
+                                  os.environ.get("MAX_API_SPEND_USD", "80"))))
     ap.add_argument("--stop-frac", type=float, default=0.85)
     ap.add_argument("--deadline-utc", default="",
                     help="ISO time to stop at, e.g. 2026-09-10T15:30:00")
@@ -98,7 +99,17 @@ def main():
                          "its surplus on extra steps rather than being "
                          "capped by the step limit instead")
     ap.add_argument("--rate-limit-wait", type=int, default=0,
-                    help="seconds to wait and retry when rate limited (0=stop)")
+                    help="seconds to wait between runs after a run was cut "
+                         "short by a rate limit (0 = stop the session)")
+    ap.add_argument("--rate-limit-max-wait", type=float, default=3600.0,
+                    help="per-run ceiling on exponential backoff against the "
+                         "provider quota, in seconds. The brief's rule: below "
+                         "it, wait and retry and log the wait; above it, stop "
+                         "and write partial reports rather than lose runs")
+    ap.add_argument("--image-window", type=int, default=None,
+                    help="max full screenshots live in the context at once")
+    ap.add_argument("--task-object", default="",
+                    help="on|off: keep the statement apart from the screen log")
     args = ap.parse_args()
 
     arms = [a.strip() for a in args.arms.split(",") if a.strip()]
@@ -156,7 +167,11 @@ def main():
                       crop_ttl=args.crop_ttl, out_dir=args.out,
                       run_tag=args.tag, token_budget=args.token_budget,
                       step_limit=step_limit,
-                      compaction=not args.no_compaction)
+                      compaction=not args.no_compaction,
+                      image_window=args.image_window,
+                      task_object=(None if not args.task_object
+                                   else args.task_object.lower() == "on"),
+                      rate_limit_max_wait_s=args.rate_limit_max_wait)
         rec_rep = p["rep"]
         # stamp the rep so resume can identify it
         with open(path, "r") as f:
