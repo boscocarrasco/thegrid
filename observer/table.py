@@ -26,6 +26,8 @@ import gi
 gi.require_version("Atspi", "2.0")
 from gi.repository import Atspi  # noqa: E402
 
+from observer import enrich as _ENRICH  # noqa: E402
+
 # Roles the agent can actually act on. Containers are walked but not listed
 # unless they are scrollable or carry text.
 ACTIONABLE_ROLES = {
@@ -65,6 +67,17 @@ class Element:
     text: str = ""        # literal text the tree reports, if any
     app: str = ""
     visual: bool = False  # pixels carry info the tree cannot describe
+    # --- round-2 enrichment; all inert unless snapshot(enrich=True) ---
+    block: Optional[str] = None       # id of the block this belongs to
+    reachable: bool = True            # can it be clicked *now*
+    blocked_by: str = ""              # if not, the id of what blocks it
+    keys: str = ""                    # direct accelerator, e.g. ctrl+s
+    key_path: str = ""                # menu path, e.g. alt+f,s
+    ambiguous: bool = False           # shares role+name with disjoint twins
+    ambiguity_group: str = ""
+    ambiguity_reason: str = ""    # "same-name" or "peer-set"
+    merged_ids: tuple = ()            # duplicates folded into this entry
+    menu_keys: tuple = ()             # (item name, combo) inside a closed menu
     _acc: object = field(default=None, repr=False, compare=False)
 
     def to_dict(self):
@@ -212,6 +225,19 @@ class ElementTable:
         self.by_id = {e.id: e for e in elements}
         self.app_names = tuple(app_names)
         self.truncated = truncated
+        # Round-2 enrichment. Absent unless observer.enrich.apply has run, so
+        # an unenriched table renders exactly as it did in round 1.
+        self.enriched = False
+        self.blocks = {}
+        self.blockers = []
+        self.n_blocked = 0
+        self.n_shortcuts = 0
+        self.merged_away = 0
+        self.ambiguous_groups = 0
+        self.ambiguous_same_name = 0
+        self.ambiguous_peer_sets = 0
+        self.enrich_ms = {}
+        self.dropped_enrichment = ""
 
     def __len__(self):
         return len(self.elements)
@@ -222,21 +248,71 @@ class ElementTable:
     def to_dicts(self):
         return [e.to_dict() for e in self.elements]
 
+    def _row(self, e, hide_blocked: bool = False) -> str:
+        x, y, w, h = e.bbox
+        st = ",".join(s for s in e.states
+                      if s in ("enabled", "checked", "selected", "focused",
+                               "expanded", "editable"))
+        txt = f' text="{e.text[:80]}"' if e.text else ""
+        row = (f'#{e.id} {e.role} "{e.name[:48]}"{txt} '
+               f'bbox=[{x},{y},{w},{h}] click=[{e.click[0]},{e.click[1]}] {st}')
+        if not self.enriched:
+            return row
+        if e.keys:
+            row += f" keys={e.keys}"
+        if e.key_path and e.key_path != e.keys:
+            row += f" menu={e.key_path}"
+        if not e.reachable and not hide_blocked:
+            row += f" BLOCKED-BY={e.blocked_by}"
+        if e.ambiguous:
+            row += f" AMBIGUOUS({e.ambiguity_group})"
+        return row
+
     def render(self, max_rows: int = 400) -> str:
-        """The full table as the model sees it at anchor time."""
-        lines = []
-        for e in self.elements[:max_rows]:
-            x, y, w, h = e.bbox
-            st = ",".join(s for s in e.states
-                          if s in ("enabled", "checked", "selected", "focused",
-                                   "expanded", "editable"))
-            txt = f' text="{e.text[:80]}"' if e.text else ""
-            lines.append(
-                f'#{e.id} {e.role} "{e.name[:48]}"{txt} '
-                f'bbox=[{x},{y},{w},{h}] click=[{e.click[0]},{e.click[1]}] {st}'
-            )
-        if len(self.elements) > max_rows:
-            lines.append(f"... {len(self.elements) - max_rows} more elements omitted")
+        """The full table as the model sees it at anchor time.
+
+        Unenriched this is a flat list, exactly as round 1 emitted it. Enriched
+        it is grouped into blocks, because a flat list of two hundred rows makes
+        the model rebuild the structure of the screen from scratch on every
+        step — which is half of what the step gap was.
+        """
+        if not self.enriched or not self.blocks:
+            lines = [self._row(e) for e in self.elements[:max_rows]]
+            if len(self.elements) > max_rows:
+                lines.append(
+                    f"... {len(self.elements) - max_rows} more elements omitted")
+            return "\n".join(lines)
+
+        order, seen = [], set()
+        for e in self.elements:
+            b = e.block
+            if b not in seen:
+                seen.add(b)
+                order.append(b)
+        lines, shown = [], 0
+        for bid in order:
+            members = [e for e in self.elements if e.block == bid]
+            blk = self.blocks.get(bid)
+            head = blk.label() if blk else "[ungrouped]"
+            # When the whole block is behind a modal, say so once on the header
+            # rather than on every row: same information, a fraction of the
+            # tokens, and the grouping is what makes that possible.
+            all_blocked = bool(members) and not any(e.reachable for e in members)
+            if all_blocked:
+                head += f"  — NOT ACTIONABLE, blocked by {members[0].blocked_by}"
+            lines.append(head)
+            for e in members:
+                if shown >= max_rows:
+                    break
+                lines.append("  " + self._row(e, hide_blocked=all_blocked))
+                shown += 1
+                if e.menu_keys:
+                    inner = ", ".join(f"{n}={c}" for n, c in e.menu_keys)
+                    lines.append(f"    inside (no click needed): {inner}")
+            if shown >= max_rows:
+                break
+        if len(self.elements) > shown:
+            lines.append(f"... {len(self.elements) - shown} more elements omitted")
         return "\n".join(lines)
 
 
@@ -248,8 +324,15 @@ def _is_listable(role: str, name: str, text: str, states: tuple) -> bool:
     return False
 
 
-def snapshot(screen_w=1920, screen_h=1080, apps=None) -> ElementTable:
-    """Walk every application on the AT-SPI bus and build the element table."""
+def snapshot(screen_w=1920, screen_h=1080, apps=None, enrich=False,
+             drop=None) -> ElementTable:
+    """Walk every application on the AT-SPI bus and build the element table.
+
+    With `enrich=False` this is exactly the round-1 table, byte for byte, which
+    is what lets arm B remain a valid control. With `enrich=True` the walk also
+    records every container it passes and which block each element falls in,
+    and `observer.enrich.apply` runs the four round-2 rules over the result.
+    """
     Atspi.init()
     try:
         desktop = Atspi.get_desktop(0)
@@ -260,8 +343,11 @@ def snapshot(screen_w=1920, screen_h=1080, apps=None) -> ElementTable:
     app_names = []
     ids = _IdAssigner()
     budget = [_MAX_NODES]
+    nodes = {}        # every walked accessible, containers included
+    block_of = {}     # listed element id -> nearest block container id
 
-    def walk(acc, parent_id, parent_bbox, depth, child_index, app_name):
+    def walk(acc, parent_id, parent_bbox, depth, child_index, app_name,
+             block_id=None):
         if budget[0] <= 0 or depth > _MAX_DEPTH:
             return
         try:
@@ -287,6 +373,14 @@ def snapshot(screen_w=1920, screen_h=1080, apps=None) -> ElementTable:
         eid = ids.assign(acc, role, name, parent_id, child_index, bbox, parent_bbox)
         text = _text_of(acc, role)
 
+        if enrich:
+            nodes[eid] = (role, name, bbox, parent_id, acc)
+            # A block is the nearest enclosing container the tree already
+            # declares. Nesting works out on its own: a dialog inside a frame
+            # takes over as the block for everything under it.
+            if on_screen and role in _ENRICH.BLOCK_ROLE_SET:
+                block_id = eid
+
         if on_screen and _is_listable(role, name, text, states):
             budget[0] -= 1
             out.append(Element(
@@ -294,6 +388,8 @@ def snapshot(screen_w=1920, screen_h=1080, apps=None) -> ElementTable:
                 click=_click_point(acc, role, bbox), parent=parent_id,
                 text=text, app=app_name, visual=(role in VISUAL_ROLES), _acc=acc,
             ))
+            if enrich:
+                block_of[eid] = block_id
 
         try:
             n = acc.get_child_count()
@@ -309,7 +405,8 @@ def snapshot(screen_w=1920, screen_h=1080, apps=None) -> ElementTable:
             except Exception:
                 continue
             if c is not None:
-                walk(c, eid, bbox or parent_bbox, depth + 1, i, app_name)
+                walk(c, eid, bbox or parent_bbox, depth + 1, i, app_name,
+                     block_id)
 
     try:
         ndesk = desktop.get_child_count()
@@ -331,4 +428,7 @@ def snapshot(screen_w=1920, screen_h=1080, apps=None) -> ElementTable:
     # Deterministic order: top-to-bottom, left-to-right. Makes the rendered
     # table byte-identical for identical screens, which the cache depends on.
     out.sort(key=lambda e: (e.app, e.bbox[1], e.bbox[0], e.role, e.id))
-    return ElementTable(out, app_names, truncated=(budget[0] <= 0))
+    t = ElementTable(out, app_names, truncated=(budget[0] <= 0))
+    if enrich:
+        _ENRICH.apply(t, nodes, block_of, drop=drop)
+    return t

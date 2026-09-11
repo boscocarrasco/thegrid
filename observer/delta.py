@@ -30,6 +30,8 @@ class Change:
     text_only: bool = False     # only meaningful for verb == "changed"
     visual: bool = False        # element's pixels carry non-tree information
     tree_described: bool = True  # tree can fully describe this change
+    ambiguous: bool = False     # the tree ran out of ways to tell these apart
+    ambiguity_reason: str = ""  # "same-name" or "peer-set"
 
     def render(self) -> str:
         sig = {"added": "+", "removed": "-", "changed": "~",
@@ -46,6 +48,8 @@ class Change:
             parts.append(f"click=[{self.click[0]},{self.click[1]}]")
         if self.detail:
             parts.append(self.detail)
+        if self.ambiguous:
+            parts.append("(ambiguous — see crop)")
         return "  ".join(parts)
 
 
@@ -77,6 +81,7 @@ def diff(prev, curr, drop_noise: bool = True):
             click=e.click, visual=e.visual,
             detail=(f'text="{e.text[:80]}"' if e.text else ""),
             tree_described=not e.visual,
+            ambiguous=e.ambiguous, ambiguity_reason=e.ambiguity_reason,
         ))
 
     for eid in prev_ids - curr_ids:
@@ -158,6 +163,20 @@ def wants_crop_priority(ch: Change) -> bool:
     if ch.verb == "changed":
         return not ch.text_only
     return False
+
+
+def wants_crop_ambiguous(ch: Change) -> bool:
+    """The rule both enriched channels add: ambiguity forces a crop.
+
+    When several elements share everything the tree can say about them and sit
+    in different places, the tree has already said all it knows and it was not
+    enough. Textual repetition there is not a signal to compress, it is a signal
+    to send pixels. The decision is structural: nothing looks at a pixel to
+    work out that pixels are needed.
+    """
+    if ch.verb in ("removed", "moved"):
+        return False
+    return bool(ch.ambiguous)
 
 
 def wants_crop_text_first(ch: Change) -> bool:

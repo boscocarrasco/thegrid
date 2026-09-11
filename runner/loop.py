@@ -22,6 +22,10 @@ from tasks import workspace as ws
 
 SCREEN_W, SCREEN_H = 1920, 1080
 
+# Exponential backoff for provider rate limits, in seconds. The last value
+# repeats until the per-run ceiling is reached.
+RATE_LIMIT_BACKOFF = (30, 60, 120, 300, 600, 900)
+
 _ACT_RE = re.compile(r"^\s*ACT:\s*(.+?)\s*$", re.IGNORECASE | re.MULTILINE)
 
 
@@ -77,9 +81,15 @@ def parse_action(text, addressing):
     return Action("malformed", raw=raw[:200])
 
 
+def why_of(obs):
+    """The reason a refresh gave, as recorded in its note."""
+    return (obs.note or "").split(":", 1)[-1].strip()
+
+
 def run_one(task, arm_name, seed, model="sonnet", crop_ttl=3,
             step_limit=None, token_budget=None, out_dir="results/raw",
-            run_tag="", compaction=True):
+            run_tag="", compaction=True, image_window=None, task_object=None,
+            rate_limit_max_wait_s=3600.0):
     """Execute one (task, arm, seed) run and return its JSONL record."""
     random.seed(seed)
     rec = {
@@ -102,6 +112,21 @@ def run_one(task, arm_name, seed, model="sonnet", crop_ttl=3,
         "step_limit": step_limit or task.max_steps,
         "token_budget": token_budget,
         "terminated": "", "crop_ttl": crop_ttl,
+        # ---- round 2 ----
+        "reanchors": 0,
+        "enrich_ms": {},              # per-phase cost of the layer-1 enrichment
+        "crops_ambiguity": 0,         # crops the ambiguity rule alone asked for
+        "crops_amb_same_name": 0,     # ... by the registered same-name rule
+        "crops_amb_peer_set": 0,      # ... by the peer-set rule
+        "peak_live_images": 0,
+        "peak_live_image_tokens": 0,
+        "image_window": None,
+        "task_object": False,
+        "enriched": False,
+        "dropped_enrichment": "",
+        "constraint_results": {},     # per-constraint verdicts, long tasks
+        "rate_limit_waits": [],       # (attempt, seconds waited)
+        "rate_limit_wait_s": 0.0,
     }
     t_run0 = time.time()
     channel = ARMS[arm_name](crop_ttl=crop_ttl)
@@ -109,7 +134,15 @@ def run_one(task, arm_name, seed, model="sonnet", crop_ttl=3,
         # Control condition: the same arm with the one mechanism that bounds
         # its context switched off, so its cost can be attributed.
         channel.compactable = False
+    if image_window is not None:
+        channel.image_window = int(image_window)
+    if task_object is not None:
+        channel.task_object = bool(task_object)
     rec["compaction_enabled"] = bool(compaction and channel.compactable)
+    rec["image_window"] = channel.image_window
+    rec["task_object"] = bool(channel.task_object)
+    rec["enriched"] = bool(getattr(channel, "enrich", False))
+    rec["dropped_enrichment"] = getattr(channel, "drop_enrichment", "") or ""
     ex = Executor(SCREEN_W, SCREEN_H)
     sess = None
 
@@ -120,8 +153,14 @@ def run_one(task, arm_name, seed, model="sonnet", crop_ttl=3,
         system = SYSTEM_PROMPT + "\n" + channel.action_rules()
         sess = ModelSession(system, model=model)
 
+        enrich = bool(getattr(channel, "enrich", False))
+        drop = getattr(channel, "drop_enrichment", None)
+
+        def observe():
+            return tbl.snapshot(SCREEN_W, SCREEN_H, enrich=enrich, drop=drop)
+
         t0 = time.time()
-        cur = tbl.snapshot(SCREEN_W, SCREEN_H)
+        cur = observe()
         obs = channel.initial(task, cur)
         rec["observe_time_s"] += time.time() - t0
         rec["initial_table_size"] = len(cur)
@@ -143,13 +182,19 @@ def run_one(task, arm_name, seed, model="sonnet", crop_ttl=3,
             # text descriptions of aged-out crops, a fresh table and a fresh
             # anchor screenshot.
             if (not getattr(channel, "stateless", False)) and step > 1:
-                do_it, why = channel.should_compact(step, prev_tbl, cur)
-                if do_it:
-                    obs = channel.compact(task, cur, history, step, why)
-                    sess.close()
-                    sess = ModelSession(system, model=model)
-                    rec["compactions"] += 1
-                    rec["compaction_log"].append({"step": step, "reason": why})
+                fresh, kind = channel.refresh(task, cur, history, step, prev_tbl)
+                if fresh is not None:
+                    obs = fresh
+                    if kind == "compaction":
+                        # Only a compaction rewrites the prefix, so only a
+                        # compaction pays for the cache. A re-anchor appends.
+                        sess.close()
+                        sess = ModelSession(system, model=model)
+                        rec["compactions"] += 1
+                    else:
+                        rec["reanchors"] = rec.get("reanchors", 0) + 1
+                    rec["compaction_log"].append(
+                        {"step": step, "reason": why_of(fresh), "kind": kind})
                     rec["observation_tokens"] += obs.observation_tokens
                     rec["image_tokens"] += obs.image_tokens
 
@@ -163,14 +208,33 @@ def run_one(task, arm_name, seed, model="sonnet", crop_ttl=3,
                 sess = ModelSession(system, model=model)
                 rec["session_rebuilds"] = rec.get("session_rebuilds", 0) + 1
 
+            # The provider quota is an external constraint, not a property of
+            # the arm, so a rate limit is waited out rather than counted. Each
+            # wait is written into this run's record: runs lost to rate limits
+            # and not flagged would bias every table toward whichever arm
+            # happened to be running when the quota was free.
             reply = sess.ask(obs.blocks)
             rec["model_calls"] += 1
+            attempt = 0
+            while (not reply.ok and ModelSession.is_rate_limit(reply.error)
+                   and rec["rate_limit_wait_s"] < rate_limit_max_wait_s):
+                attempt += 1
+                wait = min(RATE_LIMIT_BACKOFF[min(attempt - 1,
+                                                  len(RATE_LIMIT_BACKOFF) - 1)],
+                           rate_limit_max_wait_s - rec["rate_limit_wait_s"])
+                rec["rate_limit_waits"].append(
+                    {"attempt": attempt, "wait_s": round(wait, 1),
+                     "step": step, "error": (reply.error or "")[:120]})
+                rec["rate_limit_wait_s"] += wait
+                time.sleep(wait)
+                reply = sess.ask(obs.blocks)
+                rec["model_calls"] += 1
             if not reply.ok and ModelSession.is_rate_limit(reply.error):
-                # The provider quota is an external constraint, not a property
-                # of the arm. Marking the run rate_limited (rather than failed)
-                # keeps it out of the success statistics instead of silently
-                # scoring it as a loss for whichever arm happened to hit it.
-                rec["error"] = f"rate limited: {reply.error[:200]}"
+                # Backoff exhausted: the quota has been shut for longer than
+                # this run is allowed to wait. Still not a task failure.
+                rec["error"] = (f"rate limited after "
+                                f"{rec['rate_limit_wait_s']:.0f}s of backoff: "
+                                f"{reply.error[:160]}")
                 rec["terminated"] = "rate_limited"
                 break
             if not reply.ok:
@@ -255,7 +319,13 @@ def run_one(task, arm_name, seed, model="sonnet", crop_ttl=3,
             rec["debounce_s"] += st["waited_s"]
             prev = cur
             prev_tbl = cur
-            cur = tbl.snapshot(SCREEN_W, SCREEN_H)
+            cur = observe()
+            if enrich and cur.enrich_ms:
+                # PREDICTIONS.md §8 commits to reporting what the enrichment
+                # costs whether or not the number is flattering, so the timing
+                # is accumulated per run rather than inferred from totals.
+                for k, v in cur.enrich_ms.items():
+                    rec["enrich_ms"][k] = rec["enrich_ms"].get(k, 0.0) + v
             obs = channel.step(task, prev, cur, last_result, step + 1)
             rec["observe_time_s"] += time.time() - t2
         else:
@@ -263,6 +333,11 @@ def run_one(task, arm_name, seed, model="sonnet", crop_ttl=3,
 
         rec["crops_emitted"] = channel.crops_emitted
         rec["crops_aged"] = channel.crops_aged
+        rec["crops_ambiguity"] = channel.crops_ambiguity
+        rec["crops_amb_same_name"] = channel.crops_amb_same_name
+        rec["crops_amb_peer_set"] = channel.crops_amb_peer_set
+        rec["peak_live_images"] = channel.peak_live_images
+        rec["peak_live_image_tokens"] = channel.peak_live_image_tokens
         rec["grounding_failures"] = ex.grounding_failures
         rec["action_aborts"] = ex.action_aborts
         rec["abort_log"] = ex.abort_log[:20]
@@ -286,6 +361,16 @@ def run_one(task, arm_name, seed, model="sonnet", crop_ttl=3,
     except Exception as e:
         rec["success"] = False
         rec["verify_detail"] = f"verifier raised: {e}"
+
+    # Per-constraint verdicts, where the task declares a decomposition. This is
+    # what separates "failed the task" from "forgot a constraint" — without it
+    # the task-object hypothesis has nothing to be measured against.
+    if getattr(task, "verify_constraints", None):
+        try:
+            rec["constraint_results"] = {k: bool(v) for k, v
+                                         in task.verify_constraints().items()}
+        except Exception as e:
+            rec["constraint_results"] = {"_error": str(e)[:160]}
 
     rec["wall_time_total_s"] = round(time.time() - t_run0, 2)
     rec["tokens_total"] = (rec["tokens_in"] + rec["tokens_out"]

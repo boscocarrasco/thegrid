@@ -32,6 +32,13 @@ class Task:
     max_steps: int = 14
     tags: tuple = ()
     apps: tuple = ()
+    # Constraints stated explicitly in the prompt, each separately checkable.
+    # They feed the persistent task object (§5.3) and the per-constraint
+    # verifier decomposition that tells "failed the task" apart from "forgot a
+    # constraint".
+    constraints: tuple = ()
+    # () -> {name: bool}; None means the task has no decomposition.
+    verify_constraints: Callable = None
 
 
 # ------------------------------------------------------------------ helpers

@@ -92,19 +92,72 @@ class Observation:
     note: str = ""
 
 
+TASK_OBJECT_NOTE = """\
+The block below is the task itself. It does not expire when the screen changes
+and it is repeated verbatim every time the running history is replaced. Every
+constraint in it must still hold when you say DONE.
+"""
+
+
+def render_task_object(task) -> str:
+    """The task, kept apart from the screen log.
+
+    A dominant failure mode on long tasks is that the agent loses an explicit
+    constraint from the statement — "in CSV", "only the March rows", "without
+    touching the original" — because it lives in a message that got buried.
+    The screen log expires when the screen changes; the task does not, so it is
+    stored separately and re-stated at every compaction.
+    """
+    lines = [TASK_OBJECT_NOTE, f"GOAL: {task.prompt}"]
+    cons = getattr(task, "constraints", ()) or ()
+    if cons:
+        lines.append("CONSTRAINTS — all of these must hold at the end:")
+        for i, c in enumerate(cons, 1):
+            lines.append(f"  C{i}. {c}")
+    return "\n".join(lines)
+
+
 class Channel:
     """Base: shared plumbing, arms override `initial` and `step`."""
     name = "?"
     addressing = "id"          # "id" or "xy"
     stateless = False          # True => the transcript is rebuilt every step
+    enrich = False             # round-2 layer-1 enrichment on the table
+    ambiguity_crops = False    # ambiguity forces a crop
+    task_object = False        # keep the statement apart from the screen log
+    # Never more than this many full screenshots live in the context at once.
+    # Re-anchoring appends a fresh screenshot without discarding the transcript,
+    # which keeps the cache; once the window is full the next refresh has to be
+    # a real compaction, which rebuilds and costs the cache but resets the
+    # count. The window is therefore what decides how often the cache is paid
+    # for, and it is the knob experiment 4 turns.
+    image_window = 2
 
     def __init__(self, crop_ttl: int = 3):
         self.crop_ttl = crop_ttl
         self.live_crops = []       # (step_emitted, eid, description)
         self.last_compaction = 0
         self.compactions = 0
+        self.reanchors = 0
         self.crops_aged = 0
         self.crops_emitted = 0
+        self.crops_ambiguity = 0   # crops the ambiguity rule alone asked for
+        self.crops_amb_same_name = 0
+        self.crops_amb_peer_set = 0
+        self.live_anchors = 1      # the initial observation carries one
+        self.peak_live_images = 1
+        self.peak_live_image_tokens = 0
+        self._live_image_tokens = 0
+
+    # ---- live-image accounting, used by the image window ----
+
+    def _note_images(self, n_full, tokens):
+        self.live_anchors += n_full
+        self._live_image_tokens += tokens
+        live = self.live_anchors + len(self.live_crops)
+        self.peak_live_images = max(self.peak_live_images, live)
+        self.peak_live_image_tokens = max(self.peak_live_image_tokens,
+                                          self._live_image_tokens)
 
     def action_rules(self):
         return ACTION_RULES_ID if self.addressing == "id" else ACTION_RULES_XY
@@ -178,6 +231,51 @@ class Channel:
             return True, "re-anchor interval"
         return False, ""
 
+    def refresh(self, task, curr_table, history, step_no, prev_table):
+        """Decide between doing nothing, re-anchoring, and compacting.
+
+        A re-anchor appends a fresh table and screenshot to the transcript that
+        is already there: the prefix is untouched, so the cache survives, but a
+        second full screenshot is now live. A compaction throws the transcript
+        away and starts from a consolidated summary: the cache is lost, and the
+        image count resets to one.
+
+        The image window is what chooses between them. Below it, refresh the
+        cheap way; at it, pay for a compaction. With a window of two that means
+        the cache is rebuilt on every other refresh; with four, every fourth.
+        """
+        do_it, why = self.should_compact(step_no, prev_table, curr_table)
+        if not do_it:
+            return None, ""
+        natural = why in ("application changed", "dialog opened or closed")
+        if not natural and self.live_anchors < self.image_window:
+            return self.reanchor(task, curr_table, step_no, why), "reanchor"
+        return self.compact(task, curr_table, history, step_no, why), "compaction"
+
+    def reanchor(self, task, curr_table, step_no, reason):
+        """A fresh table and screenshot appended to the existing transcript."""
+        a = self._anchor()
+        lines = []
+        if self.task_object:
+            lines += [render_task_object(task), ""]
+        lines.append(f"[re-anchor at step {step_no}: {reason}. Everything above "
+                     f"still stands; this is a fresh reading of the screen.]")
+        lines.append("")
+        lines.append(f"ELEMENTS ({len(curr_table)}):")
+        lines.append(curr_table.render())
+        lines.append("")
+        lines.append(f"Fresh screenshot ({a['size'][0]}x{a['size'][1]}):")
+        txt = "\n".join(lines)
+        self.last_compaction = step_no
+        self.reanchors += 1
+        self._note_images(1, a["tokens"])
+        return Observation(
+            blocks=[text_block(txt), image_block(a["b64"])],
+            observation_tokens=count_text_tokens(txt),
+            image_tokens=a["tokens"], n_images=1,
+            note=f"reanchor: {reason}",
+        )
+
     def compact(self, task, curr_table, history, step_no, reason):
         """Build the re-anchor message that replaces the whole transcript.
 
@@ -189,7 +287,10 @@ class Channel:
         """
         aged = self.age_crops(step_no)
         a = self._anchor()
-        lines = [f"TASK: {task.prompt}", ""]
+        if self.task_object:
+            lines = [render_task_object(task), ""]
+        else:
+            lines = [f"TASK: {task.prompt}", ""]
         lines.append(f"[context compacted at step {step_no}: {reason}. The "
                      f"running history has been replaced by this summary and "
                      f"a fresh view of the screen.]")
@@ -215,6 +316,10 @@ class Channel:
         self.last_compaction = step_no
         self.compactions += 1
         self.crops_aged += len(aged)
+        # The transcript is gone: exactly one image is live again.
+        self.live_anchors = 0
+        self._live_image_tokens = 0
+        self._note_images(1, a["tokens"])
         return Observation(
             blocks=[text_block(txt), image_block(a["b64"])],
             observation_tokens=count_text_tokens(txt),
@@ -297,6 +402,7 @@ class ArmB(Channel):
                f"{a['native'][0]}x{a['native'][1]} screen) so you "
                f"can see what those ids look like.\n\n"
                f"ELEMENTS ({len(table)}):\n{tt}\n")
+        self._note_images(0, a["tokens"])
         return Observation(
             blocks=[text_block(txt), image_block(a["b64"])],
             observation_tokens=count_text_tokens(txt),
@@ -328,6 +434,7 @@ class ArmB(Channel):
             n_img += 1
             self.live_crops.append((step_no, ch.eid, lbl))
             self.crops_emitted += 1
+        self._note_images(0, img_tokens)
         return Observation(
             blocks=blocks,
             observation_tokens=count_text_tokens(
@@ -413,4 +520,169 @@ class ArmD(Channel):
         )
 
 
-ARMS = {"A": ArmA, "B": ArmB, "C": ArmC, "D": ArmD}
+# ------------------------------------------------------------- B+ and C+
+
+class _Enriched(Channel):
+    """Shared parts of the round-2 arms.
+
+    The enrichment changes what the *table* says, not how the channel behaves,
+    so B+ differs from B in exactly one place — `enrich = True`, which makes the
+    runner ask the observer for blocks, reachability, shortcuts and the geometry
+    merge. Everything else in the loop is untouched, which is what keeps B a
+    valid control rather than a different experiment.
+    """
+    enrich = True
+    task_object = True
+
+    def preamble(self, task):
+        return (render_task_object(task) if self.task_object
+                else f"TASK: {task.prompt}")
+
+    def initial_enriched(self, task, table):
+        a = self._anchor()
+        tt = table.render()
+        extra = []
+        if table.blocks:
+            extra.append(f"The table is grouped into {len(table.blocks)} blocks "
+                         f"— sets of elements that appear and disappear "
+                         f"together. Each is marked fixed (chrome that does not "
+                         f"change with the data) or variable (content).")
+        if table.n_shortcuts:
+            extra.append("Rows carry the keyboard accelerators the accessibility "
+                         "tree declares. `keys=ctrl+s` means one KEY action "
+                         "replaces opening the menu and clicking; an `inside` "
+                         "line lists what a closed menu contains, so you do not "
+                         "need to open it to find out.")
+        if table.blockers:
+            extra.append("A modal dialog is open. Blocks marked NOT ACTIONABLE "
+                         "cannot be clicked until it closes — clicking them "
+                         "wastes a step.")
+        if table.ambiguous_groups:
+            extra.append("Rows marked AMBIGUOUS are ones the tree cannot tell "
+                         "apart; a pixel crop of each is sent when they change.")
+        txt = (f"{self.preamble(task)}\n\n"
+               f"Below is the complete table of on-screen elements, with exact "
+               f"coordinates taken from the operating system, and an anchor "
+               f"screenshot ({a['size'][0]}x{a['size'][1]}, showing the same "
+               f"{a['native'][0]}x{a['native'][1]} screen) so you "
+               f"can see what those ids look like.\n"
+               + ("\n".join("- " + e for e in extra) + "\n" if extra else "")
+               + f"\nELEMENTS ({len(table)}):\n{tt}\n")
+        self._note_images(0, a["tokens"])
+        return Observation(
+            blocks=[text_block(txt), image_block(a["b64"])],
+            observation_tokens=count_text_tokens(txt),
+            image_tokens=a["tokens"], n_images=1, note="anchor+enriched-table",
+        )
+
+    def _tag_ambiguous(self, changes, curr_table):
+        for ch in changes:
+            el = curr_table.get(ch.eid)
+            if el is not None and el.ambiguous:
+                ch.ambiguous = True
+                ch.ambiguity_reason = el.ambiguity_reason
+
+    def _count_ambiguity_crop(self, ch, forced_by_ambiguity):
+        if not forced_by_ambiguity:
+            return
+        self.crops_ambiguity += 1
+        if ch.ambiguity_reason == "same-name":
+            self.crops_amb_same_name += 1
+        elif ch.ambiguity_reason == "peer-set":
+            self.crops_amb_peer_set += 1
+
+
+class ArmBPlus(_Enriched):
+    """B with the layer-1 enrichment: blocks, reachability, shortcuts, merge."""
+    name = "B+"
+    addressing = "id"
+
+    def initial(self, task, table):
+        return self.initial_enriched(task, table)
+
+    def step(self, task, prev_table, curr_table, last_result, step_no):
+        return ArmB.step(self, task, prev_table, curr_table, last_result, step_no)
+
+
+class ArmCPlus(_Enriched):
+    """C with the enrichment and the rule that ambiguity forces a crop.
+
+    Arm B crops every `added` element anyway, so the ambiguity rule changes
+    nothing there; it is only in the text-first channel that it can decide
+    anything, which is why the prediction about it is registered on C+.
+    """
+    name = "C+"
+    addressing = "id"
+    ambiguity_crops = True
+
+    def initial(self, task, table):
+        return self.initial_enriched(task, table)
+
+    def step(self, task, prev_table, curr_table, last_result, step_no):
+        changes = D.diff(prev_table, curr_table)
+        self._tag_ambiguous(changes, curr_table)
+        for ch in changes:
+            el = curr_table.get(ch.eid)
+            if el is None or ch.verb in ("removed", "moved"):
+                continue
+            if el.text or el.name:
+                if not screen.verify_bbox(el.bbox, el.text or el.name):
+                    ch.tree_described = False
+
+        head = (f"Step {step_no}. Result of last action: {last_result}\n"
+                f"CHANGES ({len(changes)}):\n{D.render_changes(changes)}\n")
+        blocks = [text_block(head)]
+        img_tokens = n_img = 0
+        for ch in changes:
+            text_first = D.wants_crop_text_first(ch)
+            by_ambiguity = D.wants_crop_ambiguous(ch)
+            if not (text_first or by_ambiguity):
+                continue
+            el = curr_table.get(ch.eid)
+            if el is None or n_img >= 6:
+                continue
+            c = screen.crop_for(el.bbox, ch.eid)
+            x, y, w, h = c["region"]
+            if text_first:
+                why = "visual element" if ch.visual else "tree description unreliable"
+            else:
+                why = f"ambiguous: {ch.ambiguity_reason}"
+            lbl = (f'crop #{ch.eid} ({ch.verb}, {why}) {el.role} '
+                   f'"{el.name[:40]}" at screen [{x},{y},{w},{h}]:')
+            blocks.append(text_block(lbl))
+            blocks.append(image_block(c["b64"]))
+            img_tokens += c["tokens"]
+            n_img += 1
+            self.live_crops.append((step_no, ch.eid, lbl))
+            self.crops_emitted += 1
+            self._count_ambiguity_crop(ch, by_ambiguity and not text_first)
+        self._note_images(0, img_tokens)
+        return Observation(
+            blocks=blocks,
+            observation_tokens=count_text_tokens(
+                head + "".join(b["text"] for b in blocks if b["type"] == "text")),
+            image_tokens=img_tokens, n_images=n_img, n_changes=len(changes),
+            note="delta+forced-crops+ambiguity",
+        )
+
+
+# Ablations for §4.4 of PREDICTIONS.md — each is B+ with one enrichment off.
+class ArmBPlusNoBlocks(ArmBPlus):
+    name = "B+nb"
+    drop_enrichment = "blocks"
+
+
+class ArmBPlusNoReach(ArmBPlus):
+    name = "B+nr"
+    drop_enrichment = "reachability"
+
+
+class ArmBPlusNoKeys(ArmBPlus):
+    name = "B+nk"
+    drop_enrichment = "shortcuts"
+
+
+ARMS = {"A": ArmA, "B": ArmB, "C": ArmC, "D": ArmD,
+        "B+": ArmBPlus, "C+": ArmCPlus,
+        "B+nb": ArmBPlusNoBlocks, "B+nr": ArmBPlusNoReach,
+        "B+nk": ArmBPlusNoKeys}
