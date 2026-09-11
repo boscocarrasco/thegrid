@@ -161,6 +161,20 @@ failure looks exactly like a difficult task.
       constraints. Suite: 22 short + 6 long = 28.
 - [x] Verifier controls for **all 28** tasks, positive and negative, including
       the 7 that read page state over CDP and were uncovered in round 1.
-- [ ] Checkpoint: two menu tasks end to end on A, B and B+.
-- [ ] Experiments 1-4.
-- [ ] `RESULTS2.md`, `REPORT2.md`, `DECISIONS.md`.
+- [x] Checkpoint: two menu tasks end to end on A, B and B+. The arms stayed
+      comparable and nothing besides the enrichment moved.
+- [x] Experiment 1 core — 105 runs, A/B/B+ on the seven menu/dialog tasks, N=5.
+- [x] Experiment 2 — 20 runs, C/C+ on the vdelta pair, N=5.
+- [x] Experiment 1 control — 110 of 120 runs on the **pre-registered reduced**
+      eight-task control group. The reduction was triggered by a ~3 h provider
+      suspension, exactly as PREDICTIONS.md §11 said it would be.
+- [ ] **Experiment 3 (budget sweep) — not run.** `scripts/round2.sh t5`.
+- [ ] **Experiment 4 (image window, task object) — not run.** `t4`.
+- [ ] **Ablation — not run.** `t6`. P1.1 held in direction, so it is warranted.
+- [x] `RESULTS2.md` (generated), `REPORT2.md`, `DECISIONS.md` D7.
+
+**235 usable runs, 2 excluded as rate-limited, $25.44 estimated.** Six of the
+twelve registered claims were tested; six were not run and are reported as not
+run. One is falsified: the ambiguity rule the design document specifies fired
+zero times, and the whole vdelta result belongs to the peer-set rule added
+after reading the tree.
