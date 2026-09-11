@@ -9,6 +9,7 @@ JSONL is skipped, so an interrupted run resumes where it stopped.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import random
@@ -44,8 +45,13 @@ def build_plan(arms, task_ids, reps, plan_seed=20260910):
     for rep in range(1, reps + 1):
         for tid in task_ids:
             for arm in arms:
+                # A stable digest, not `hash()`: Python randomises string
+                # hashing per process, so a resumed session would give the same
+                # (task, rep) a different seed and quietly break the pairing
+                # that the round-2 analysis depends on.
+                h = int(hashlib.sha1(tid.encode()).hexdigest()[:8], 16)
                 plan.append({"task": tid, "arm": arm, "rep": rep,
-                             "seed": 1000 * rep + (hash(tid) % 997)})
+                             "seed": 1000 * rep + (h % 997)})
     rng = random.Random(plan_seed)
     # Shuffle within each rep block: keeps arms interleaved but removes any
     # fixed task->position coupling that could interact with drift.
