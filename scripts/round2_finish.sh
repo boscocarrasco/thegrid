@@ -14,7 +14,13 @@ OUT=results/raw2
 LOG=${GRID_LOG:-/tmp/round2}
 mkdir -p "$OUT" "$LOG"
 
-CAP=${GRID_SPEND_CAP:-68}          # 85% of the $80 estimated-spend budget
+# The estimated-spend cap. It started at 68 — 85% of the $80 default in the
+# round-2 brief — and was lifted by explicit instruction at $63.05 spent, with
+# T4 two-and-a-bit sub-tiers in and T6 unstarted. The guard machinery stays in
+# place rather than being deleted: a run with no ceiling at all is a run whose
+# cost nobody can state afterwards, and REPORT2.md has to say what this round
+# cost and under what limit. Set GRID_SPEND_CAP to restore a tighter one.
+CAP=${GRID_SPEND_CAP:-400}
 MENU="text_replace,calc_add_row,files_rename,menu_replace_all,menu_save_as_subdir,menu_calc_insert_column,menu_files_new_folder"
 CONTROL="files_new_note,files_save_as,text_append,text_delete_line,text_uppercase,calc_total,calc_count_eng,web_form,visual_chart,visual_shapes,visual_badge,cross_report_summary,cross_inventory_note,vdelta_rows,vdelta_bars"
 SWEEP10="files_new_note,cross_report_summary,calc_add_row,vdelta_bars,files_save_as,files_rename,calc_count_eng,vdelta_rows,menu_replace_all,menu_files_new_folder"
