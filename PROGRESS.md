@@ -168,13 +168,15 @@ failure looks exactly like a difficult task.
 - [x] Experiment 1 control — 110 of 120 runs on the **pre-registered reduced**
       eight-task control group. The reduction was triggered by a ~3 h provider
       suspension, exactly as PREDICTIONS.md §11 said it would be.
-- [ ] **Experiment 3 (budget sweep) — not run.** `scripts/round2.sh t5`.
+- [~] **Experiment 3 (budget sweep) — partial.** The 8,000 ceiling ran on the
+      first five tasks of the registered ordering, 50 runs. The 15,000 and
+      30,000 ceilings did not run, so there is no crossing point.
 - [ ] **Experiment 4 (image window, task object) — not run.** `t4`.
 - [ ] **Ablation — not run.** `t6`. P1.1 held in direction, so it is warranted.
 - [x] `RESULTS2.md` (generated), `REPORT2.md`, `DECISIONS.md` D7.
 
-**235 usable runs, 2 excluded as rate-limited, $25.44 estimated.** Six of the
-twelve registered claims were tested; six were not run and are reported as not
+**285 usable runs, 2 excluded as rate-limited, $27.40 estimated.** Seven of the
+twelve registered claims were tested; five were not run and are reported as not
 run. One is falsified: the ambiguity rule the design document specifies fired
 zero times, and the whole vdelta result belongs to the peer-set rule added
 after reading the tree.

@@ -22,12 +22,12 @@ is all it is used for, and it is not observed spend.
 | T2 | Exp 2 — C, C+ × vdelta (2) × 5 | 20 | **20** (2 re-run after a rate limit) |
 | T3 | Exp 1 control — A, B, B+ × control group | 225 | **110** of the reduced 8-task version (120) |
 | T4 | Exp 4 — image window and task object on long tasks | 80 | **0** |
-| T5 | Exp 3 — the budget sweep, enforced, three ceilings | 300 | **0** |
+| T5 | Exp 3 — the budget sweep, enforced, three ceilings | 300 | **50** — the 8,000 ceiling only, on the first five tasks of the registered ordering |
 | T6 | Ablation, conditional on P1.1 | 105 | **0** |
 
-**235 usable runs, 2 excluded, estimated cost $25.44.**
+**285 usable runs, 2 excluded, estimated cost $27.40.**
 
-The reason T4–T6 did not run is a **provider suspension that cost about three
+The reason T4 and T6 did not run, and T5 ran only in part, is a **provider suspension that cost about three
 hours of wall clock**, landing in the middle of T2. The backoff waited it out
 and wrote every wait into the affected runs' records — **168.5 minutes of
 logged backoff across three runs**, one of which sat at the full one-hour
@@ -161,14 +161,48 @@ result it cites is wrong about this benchmark.
 
 ### Below what budget does the tool win, with the full suite?
 
-**Not measured.** T5 did not run. Round 1's answer stands unreplicated and, by
-its own admission (`PREDICTIONS.md` Fact 2), rests on a nine-task subset in
-which arm B exceeded the 8,000-token ceiling in 1 run of 29, against 15 of 21
-in the seven tasks the subset excluded.
+**One of three ceilings was measured, and at that ceiling the answer is: not
+detectably.** The 15,000 and 30,000 ceilings did not run, so there is no
+crossing point and P3.1 is unanswered.
 
-The infrastructure for it is in place — `scripts/round2.sh t5` runs the three
-ceilings endpoints-first, so a partial sweep still brackets the crossing — and
-it is the first thing that should run next.
+At **8,000 fresh tokens per task**, enforced during execution with every step
+limit doubled, on five tasks × 5 repetitions × 2 arms:
+
+| arm | n | success | stopped by the budget | steps |
+|---|---|---|---|---|
+| A | 25 | 0.320 [0.160, 0.520] | **20/25 (80 %)** | 5.7 |
+| B+ | 25 | 0.400 [0.200, 0.600] | **16/25 (64 %)** | 6.8 |
+
+Paired over 25 pairs: `+0.080 success [−0.120, +0.320]`. The interval includes
+zero, so at this ceiling and this N there is **no detectable difference**
+between the enriched tool and the baseline. B+ is nominally ahead by 8 points,
+against a registered prediction of at least 10 with separation.
+
+**The more important number is the cut rate, and it corrects round 1 sharply.**
+Round 1 reported the tool arm "stopped by the budget in 0 of 27 runs" at this
+same 8,000-token ceiling. Here B+ is stopped in **16 of 25**. Fact 2 of
+`PREDICTIONS.md` — that the round-1 headline was a property of its nine-task
+subset rather than of the arm — is not just confirmed, it was understated: I
+predicted a 20–50 % cut rate and measured 64 %.
+
+Per task, the picture is not a uniform shift but two opposite ones:
+
+| task | A success | B+ success | A cut | B+ cut |
+|---|---|---|---|---|
+| `files_save_as` | 0/5 | **5/5** | 5/5 | **1/5** |
+| `files_new_note` | **2/5** | 0/5 | 4/5 | 5/5 |
+| `calc_add_row` | 1/5 | 0/5 | 5/5 | 5/5 |
+| `vdelta_bars` | 5/5 | 5/5 | 1/5 | 0/5 |
+| `cross_report_summary` | 0/5 | 0/5 | 5/5 | 5/5 |
+
+On `files_save_as` the tool converts a total baseline failure into a clean
+sweep; on `files_new_note` it does the reverse. Two tasks are hopeless for both
+at this ceiling. Whatever the round-1 result was measuring, it was not a
+property that holds task by task.
+
+The infrastructure for the rest is in place — `scripts/round2.sh t5` runs all
+three ceilings endpoints-first, so completing it brackets the crossing — and it
+remains the first thing that should run next.
 
 ### What does the enrichment cost, in milliseconds and in tokens?
 
@@ -220,16 +254,17 @@ precisely the question T5 was going to answer and did not.
 | P1.5 | Ablation ordering shortcuts > reachability > blocks | **not run** | — |
 | P2.1 | C+ ≥ 6/10 and ≤ 7.0 steps on vdelta | **held, with room** | 10/10 at 5.00 steps |
 | P2.2 | The registered same-name rule is what fires | **falsified** | 0 same-name crops, 55 peer-set crops |
-| P3.1 | A crossing between 8k and 30k fresh tokens | **not run** | — |
-| P3.2 | B+ cut by the 8k ceiling in 20–50 % of runs | **not run** | — |
+| P3.1 | A crossing between 8k and 30k fresh tokens | **not answerable** | only the 8k ceiling ran; at it, +0.080 success [−0.120, +0.320], no detectable difference |
+| P3.2 | B+ cut by the 8k ceiling in 20–50 % of runs | **understated** | 64 % (16/25), against round 1's reported 0/27 |
 | P4.1 | The task object halves constraint loss | **not run** | — |
 | P4.2 | The 2-image window costs ≥ 25 % fewer peak image tokens, free | **not run** | — |
 | P5.1 | Enrichment ≤ 150 ms/step and ≤ 15 % tokens | **split** | 2.78 ms/step, far inside; +19.2 % tokens, outside the point prediction, inside the falsification threshold |
 
-Six claims tested, six not run. Of the six tested: three held cleanly (P1.2,
-P1.3, P1.4), one held beyond its threshold (P2.1), one is half right (P5.1),
-one is half right in a way worth stating precisely (P1.1), and one is
-**falsified** (P2.2).
+Seven claims tested, five not run. Of the seven tested: three held cleanly
+(P1.2, P1.3, P1.4), one held beyond its threshold (P2.1), one is half right
+(P5.1), one is half right in a way worth stating precisely (P1.1), one is
+**falsified** (P2.2), and one (P3.2) was right in direction and too
+conservative in magnitude. P3.1 needed two ceilings that did not run.
 
 ### Two things I got wrong in advance, stated as such
 
@@ -312,9 +347,11 @@ value is that it is not edited.
 
 ## 4. What should run next, in order
 
-1. **T5, the budget sweep.** It is the one required question with no answer at
-   all, and round 1's headline depends on it. `scripts/round2.sh t5`, ceilings
-   endpoints-first.
+1. **The rest of T5.** The 8,000 ceiling ran on five of the ten registered
+   tasks and already overturned round 1's "0/27 stopped by the budget". The
+   15,000 and 30,000 ceilings are what locate the crossing, and without them
+   the required question — below what budget does the tool win — has no
+   answer. `scripts/round2.sh t5`.
 2. **T6, the ablation.** P1.1 held in direction and separation, which is the
    condition `PREDICTIONS.md` §4.4 set for running it. Without it, "shortcuts
    are what work" remains an untested story about a real effect.
@@ -343,6 +380,11 @@ value is that it is not edited.
   — 7/10 and 12.2 steps become 10/10 and 5.0, matching the crop-priority arm at
   a ninth of the estimated cost — **through a rule the design document does not
   contain**, while the rule it does contain fired zero times.
-- Four of the round's twelve registered claims are answered, two are answered
-  in part, one is falsified outright, and **six were not run and are reported as
-  not run**.
+- At an enforced ceiling of 8,000 fresh tokens the enriched tool and the
+  baseline are **not detectably different** (+0.080 [−0.120, +0.320]), and the
+  tool is **stopped by that budget in 64 % of runs** where round 1 reported
+  0 %. The round-1 headline was a property of its task subset, as
+  `PREDICTIONS.md` said before any of this ran.
+- Four of the round's twelve registered claims are answered, three are answered
+  in part, one is falsified outright, and **five were not run and are reported
+  as not run**.
