@@ -22,20 +22,21 @@ is all it is used for, and it is not observed spend.
 | T2 | Exp 2 — C, C+ × vdelta (2) × 5 | 20 | **20** (2 re-run after a rate limit) |
 | T3 | Exp 1 control — A, B, B+ × control group | 225 | **110** of the reduced 8-task version (120) |
 | T4 | Exp 4 — image window and task object on long tasks | 80 | **0** |
-| T5 | Exp 3 — the budget sweep, enforced, three ceilings | 300 | **50** — the 8,000 ceiling only, on the first five tasks of the registered ordering |
+| T5 | Exp 3 — the budget sweep, enforced, three ceilings | 300 | **100** — the 8,000 and 30,000 ceilings, on the first five tasks of the registered ordering; the 15,000 ceiling did not run |
 | T6 | Ablation, conditional on P1.1 | 105 | **0** |
 
-**285 usable runs, 2 excluded, estimated cost $27.40.**
+**341 usable runs, 3 excluded and all three re-run, estimated cost $32.54.**
 
-The reason T4 and T6 did not run, and T5 ran only in part, is a **provider suspension that cost about three
-hours of wall clock**, landing in the middle of T2. The backoff waited it out
-and wrote every wait into the affected runs' records — **168.5 minutes of
-logged backoff across three runs**, one of which sat at the full one-hour
-per-run ceiling. Two runs exhausted that ceiling and are marked `rate_limited`,
-which excludes them from every statistic rather than scoring them as task
-failures; both were re-run afterwards and their replacements are in the data.
-Nothing was learned during the suspension and a third of the budget went with
-it.
+The reason T4 and T6 did not run, and T5 ran only in part, is a **provider
+suspension that cost about three hours of wall clock**, landing in the middle
+of T2. The backoff waited it out and wrote every wait into the affected runs'
+records — **228.5 minutes of logged backoff across three runs**, each of which
+sat at the full one-hour per-run ceiling. Those three runs are marked
+`rate_limited`, which excludes them from every statistic rather than scoring
+them as task failures. **All three were subsequently re-run and all three have
+a completed replacement in the data** (§6); no cell is missing one and no run
+was silently discarded for a rate limit. Nothing was learned during the
+suspension and a third of the budget went with it.
 
 That is also what triggered the **pre-registered reduction** of T3.
 `PREDICTIONS.md` §11 said the control group falls back to eight named tasks if
@@ -58,20 +59,21 @@ answers, so a post-hoc table would be a different result wearing the same name.
 
 **Partly, and less than predicted.**
 
-On the seven menu/dialog tasks, paired within `(task, rep)` across 35 pairs:
+On the seven menu/dialog tasks, paired within `(run_tag, task, rep)` across 37
+pairs:
 
 | | steps | success |
 |---|---|---|
-| A (baseline) | 10.77 | 0.800 |
-| B (tool, as it stood) | 13.20 | 0.743 |
-| **B+ (tool, enriched)** | **11.60** | **0.829** |
+| A (baseline) | 10.89 | 0.784 |
+| B (tool, as it stood) | 13.11 | 0.757 |
+| **B+ (tool, enriched)** | **11.38** | **0.838** |
 
-- **B against A** — `+2.43 steps [+0.66, +4.11]`. The defect round 1 measured
+- **B against A** — `+2.22 steps [+0.43, +3.92]`. The defect round 1 measured
   reproduces: the unenriched tool really does spend more steps than a
   screenshot on menu work, and the interval excludes zero.
-- **B+ against B** — `−1.60 steps [−2.71, −0.57]`. The enrichment moves it, and
+- **B+ against B** — `−1.73 steps [−2.81, −0.70]`. The enrichment moves it, and
   the interval excludes zero.
-- **B+ against A** — `+0.83 steps [−1.34, +2.83]`. No detectable difference at
+- **B+ against A** — `+0.49 steps [−1.65, +2.54]`. No detectable difference at
   this N. The gap that was statistically present is no longer detectable.
 
 So the enrichment removes about two thirds of the measured gap. It does not
@@ -80,10 +82,10 @@ remove it. And where it acts is uneven — the whole effect is in three tasks:
 | task | A | B | **B+** |
 |---|---|---|---|
 | `menu_files_new_folder` | 2/5 in 19.2 | 2/5 in 17.8 | **5/5 in 11.8** |
-| `menu_save_as_subdir` | 1/5 in 14.2 | 5/5 in 9.0 | **5/5 in 7.6** |
+| `menu_save_as_subdir` | 1/6 in 14.5 | 6/6 in 9.2 | **6/6 in 7.3** |
 | `files_rename` | 5/5 in 6.0 | 3/5 in 15.0 | **4/5 in 13.2** |
 | `text_replace` | 5/5 in 4.0 | 5/5 in 11.0 | 5/5 in 9.0 |
-| `menu_replace_all` | 5/5 in 10.4 | 5/5 in 10.0 | 5/5 in 9.0 |
+| `menu_replace_all` | 6/6 in 10.3 | 6/6 in 10.5 | 6/6 in 9.0 |
 | `menu_calc_insert_column` | 5/5 in 12.6 | 5/5 in 13.6 | 5/5 in **14.6** |
 | `calc_add_row` | 5/5 in 9.0 | 1/5 in 16.0 | **0/5 in 16.0** |
 
@@ -185,22 +187,44 @@ result it cites is wrong about this benchmark.
 
 ### Below what budget does the tool win, with the full suite?
 
-**One of three ceilings was measured, and at that ceiling the answer is: not
-detectably.** The 15,000 and 30,000 ceilings did not run, so there is no
-crossing point and P3.1 is unanswered.
+**Two of three ceilings were measured. At neither does the tool detectably win,
+and between them the point estimate changes sign.** The 15,000 ceiling did not
+run, so the crossing is bracketed but not located, and P3.1 is answered only in
+part.
 
-At **8,000 fresh tokens per task**, enforced during execution with every step
-limit doubled, on five tasks × 5 repetitions × 2 arms:
+Both ceilings were enforced during execution, with every step limit doubled, on
+five tasks × 5 repetitions × 2 arms:
 
-| arm | n | success | stopped by the budget | steps |
-|---|---|---|---|---|
-| A | 25 | 0.320 [0.160, 0.520] | **20/25 (80 %)** | 5.7 |
-| B+ | 25 | 0.400 [0.200, 0.600] | **16/25 (64 %)** | 6.8 |
+| ceiling | arm | n | success | stopped by the budget | steps |
+|---|---|---|---|---|---|
+| 8,000 | A | 25 | 0.320 [0.160, 0.520] | **20/25 (80 %)** | 5.7 |
+| 8,000 | **B+** | 25 | **0.400 [0.200, 0.600]** | **16/25 (64 %)** | 6.8 |
+| 30,000 | **A** | 25 | **0.720 [0.520, 0.880]** | 8/25 (32 %) | 8.9 |
+| 30,000 | B+ | 25 | 0.600 [0.400, 0.800] | 10/25 (40 %) | 12.9 |
 
-Paired over 25 pairs: `+0.080 success [−0.120, +0.320]`. The interval includes
-zero, so at this ceiling and this N there is **no detectable difference**
-between the enriched tool and the baseline. B+ is nominally ahead by 8 points,
-against a registered prediction of at least 10 with separation.
+Paired within `(task, rep)`, 25 pairs at each ceiling:
+
+| ceiling | success B+ − A | steps B+ − A | verdict |
+|---|---|---|---|
+| 8,000 | `+0.080 [−0.120, +0.320]` | `+1.08 [−0.36, +2.48]` | no detectable difference |
+| 30,000 | `−0.120 [−0.320, +0.080]` | `+4.04 [+1.24, +7.28]` | no detectable difference on success |
+
+Both success intervals include zero, so at this N there is **no detectable
+difference at either ceiling**. That is not the same as the arms being equal,
+and it is worth saying what the point estimates do: B+ is nominally 8 points
+ahead at 8,000 and 12 points behind at 30,000. **The sign flips between 8,000
+and 30,000 fresh tokens**, which is the shape the tight-budget hypothesis
+predicts — the tool's advantage is supposed to be that it says more per token —
+but the intervals do not establish a crossing, only bracket where one would be
+if it exists. Locating it is exactly what the unrun 15,000 ceiling was for.
+
+One difference at 30,000 *does* clear zero, and it is not in the tool's favour:
+**B+ spends `+4.04 [+1.24, +7.28]` more steps than the baseline** on these five
+tasks once the budget stops binding. The menu group is where the enrichment
+pays (`−1.73` steps against B); this sweep set contains one menu task and four
+that are not, and there the extra steps are real. Read together with the
+control-group result, the honest summary is that the enrichment helps on menu
+and dialog work and costs steps elsewhere when nothing forces economy.
 
 **The more important number is the cut rate, and it corrects round 1 sharply.**
 Round 1 reported the tool arm "stopped by the budget in 0 of 27 runs" at this
@@ -209,39 +233,57 @@ same 8,000-token ceiling. Here B+ is stopped in **16 of 25**. Fact 2 of
 subset rather than of the arm — is not just confirmed, it was understated: I
 predicted a 20–50 % cut rate and measured 64 %.
 
-Per task, the picture is not a uniform shift but two opposite ones:
+Per task, at both ceilings — success, and in brackets the number of runs the
+budget cut off:
 
-| task | A success | B+ success | A cut | B+ cut |
+| task | A @ 8k | B+ @ 8k | A @ 30k | B+ @ 30k |
 |---|---|---|---|---|
-| `files_save_as` | 0/5 | **5/5** | 5/5 | **1/5** |
-| `files_new_note` | **2/5** | 0/5 | 4/5 | 5/5 |
-| `calc_add_row` | 1/5 | 0/5 | 5/5 | 5/5 |
-| `vdelta_bars` | 5/5 | 5/5 | 1/5 | 0/5 |
-| `cross_report_summary` | 0/5 | 0/5 | 5/5 | 5/5 |
+| `files_save_as` | 0/5 (5 cut) | **5/5 (1)** | 3/5 (2) | **5/5 (0)** |
+| `files_new_note` | **2/5 (4)** | 0/5 (5) | 5/5 (1) | 5/5 (0) |
+| `vdelta_bars` | 5/5 (1) | 5/5 (0) | 5/5 (0) | 5/5 (0) |
+| `cross_report_summary` | 0/5 (5) | 0/5 (5) | 0/5 (5) | 0/5 (5) |
+| `calc_add_row` | 1/5 (5) | 0/5 (5) | **5/5 (0)** | **0/5 (5)** |
 
-On `files_save_as` the tool converts a total baseline failure into a clean
-sweep; on `files_new_note` it does the reverse. Two tasks are hopeless for both
-at this ceiling. Whatever the round-1 result was measuring, it was not a
-property that holds task by task.
+Three things read straight off this table.
 
-The infrastructure for the rest is in place — `scripts/round2.sh t5` runs all
-three ceilings endpoints-first, so completing it brackets the crossing — and it
-remains the first thing that should run next.
+**The 8,000 result is two opposite effects, not a shift.** On `files_save_as`
+the tool turns a total baseline failure into a clean sweep; on `files_new_note`
+it does the reverse; two tasks are hopeless for both. Whatever the round-1
+headline measured, it was not a property that holds task by task.
+
+**Raising the ceiling rescues almost everything — for one arm.** Going from
+8,000 to 30,000, the baseline's cut rate falls 80 % → 32 % and its success
+rises 0.32 → 0.72. B+ improves far less, 64 % → 40 % and 0.40 → 0.60.
+
+**The whole of B+'s deficit at 30,000 is `calc_add_row`**: −5 successes there,
++2 on `files_save_as`, zero everywhere else, which is exactly the −3/25 =
+−0.120 paired difference. And the mechanism has changed. At 8,000 both arms are
+cut by tokens; at 30,000 the baseline finishes it in 9 steps with budget to
+spare while **B+ is cut by the token budget in 5 of 5**. §1 diagnoses the step
+side of this task — cell-by-cell entry costing three extra steps — and the
+30,000 ceiling adds the other half: on this task the enriched tool is worse on
+*both* resources, spending more than 30,000 fresh tokens where the baseline
+needs far fewer. One task out of five is carrying the entire 30,000-token
+result, and the sweep set is too small for that to be comfortable.
+
+The infrastructure for the remaining ceiling is in place —
+`scripts/round2.sh t5` runs all three endpoints-first — and running the 15,000
+ceiling is what would locate the crossing this round only brackets.
 
 ### What does the enrichment cost, in milliseconds and in tokens?
 
 **In time, almost nothing. In tokens, more than predicted.**
 
-| phase | ms per step (B+, 72 runs, 771 steps) |
+| phase | ms per step (B+, 74 runs, 786 steps) |
 |---|---|
 | geometry duplicate merge | 0.11 |
 | blocks | 0.04 |
 | ambiguity (both rules) | 0.04 |
 | reachability | 0.34 |
-| shortcuts | 2.25 |
-| **total** | **2.78** |
+| shortcuts | 2.21 |
+| **total** | **2.73** |
 
-Against a prediction of ≤ 150 ms and a falsification threshold of 400 ms, 2.78
+Against a prediction of ≤ 150 ms and a falsification threshold of 400 ms, 2.73
 ms is not close to either. Two implementation choices are responsible:
 key bindings and closed-menu contents are cached per `(app, element id)`, so
 the 81 ms first read of an application's menu tree is paid once per process,
@@ -252,17 +294,19 @@ spreadsheet's thousands of cells out of it entirely.
 
 Tokens are the other way round:
 
-> Observation tokens, B+ against B, paired over 70 `(task, rep)` pairs:
-> **+1,850 [+956, +2,817]** against a B mean of 9,613 — **+19.2 %**.
+> Observation tokens, B+ against B, paired over 72 `(run_tag, task, rep)`
+> pairs: **+1,745 [+871, +2,760]** against a B mean of 9,514 — **+18.3 %**.
 
 The prediction was ≤ 15 %, with falsification at 40 %. So the point prediction
 is **missed** and the falsification threshold is not reached. Most of the extra
 is the closed-menu accelerator summary, which is the same feature the step
 saving is attributed to — the enrichment buys steps with tokens, at roughly
-1,850 tokens per 1.6 steps saved on the menu group.
+1,745 tokens per 1.7 steps saved on the menu group.
 
-Whether that trade is worth taking depends on the budget regime, which is
-precisely the question T5 was going to answer and did not.
+Whether that trade is worth taking depends on the budget regime, and the two
+ceilings that did run say the trade looks better the tighter the budget is:
+nominally ahead at 8,000, nominally behind at 30,000, neither separated from
+zero.
 
 ---
 
@@ -270,30 +314,30 @@ precisely the question T5 was going to answer and did not.
 
 | # | Registered claim | Outcome | Measured |
 |---|---|---|---|
-| P1.1 | B+ cuts ≥ 2.0 steps vs B on menu/dialog | **partly** | −1.60 [−2.71, −0.57]; direction and separation hold, the magnitude does not |
+| P1.1 | B+ cuts ≥ 2.0 steps vs B on menu/dialog | **partly** | −1.73 [−2.81, −0.70]; direction and separation hold, the magnitude does not |
 | P1.1b | B+ lands in 7–11 steps on the three defect tasks (fails at ≥ 13.0) | **missed, not falsified** | 12.73 against B's 14.00 |
 | P1.2 | B+ does not hurt the control group | **held** | steps −0.11 [−0.40, +0.11]; success +0.057, overlapping |
-| P1.3 | B+ does not fully catch A on menus | **held** | +0.83 [−1.34, +2.83], overlapping |
+| P1.3 | B+ does not fully catch A on menus | **held** | +0.49 [−1.65, +2.54], overlapping |
 | P1.4 | B+ = B on anchor-solvable visual tasks | **held** | `visual_badge` 4.0 vs 4.0, `files_save_as` 6.4 vs 6.5, `files_new_note` 10.0 vs 10.0 |
 | P1.5 | Ablation ordering shortcuts > reachability > blocks | **not run** | — |
 | P2.1 | C+ ≥ 6/10 and ≤ 7.0 steps on vdelta | **held, with room** | 10/10 at 5.00 steps |
 | P2.2 | The registered same-name rule is what fires | **falsified** | 0 same-name crops, 55 peer-set crops |
-| P3.1 | A crossing between 8k and 30k fresh tokens | **not answerable** | only the 8k ceiling ran; at it, +0.080 success [−0.120, +0.320], no detectable difference |
+| P3.1 | A crossing between 8k and 30k fresh tokens | **bracketed, not located** | both endpoints ran: +0.080 [−0.120, +0.320] at 8k, −0.120 [−0.320, +0.080] at 30k. The point estimate changes sign in between; neither interval clears zero, and the 15k ceiling that would locate it did not run |
 | P3.2 | B+ cut by the 8k ceiling in 20–50 % of runs | **understated** | 64 % (16/25), against round 1's reported 0/27 |
 | P4.1 | The task object halves constraint loss | **not run** | — |
 | P4.2 | The 2-image window costs ≥ 25 % fewer peak image tokens, free | **not run** | — |
-| P5.1 | Enrichment ≤ 150 ms/step and ≤ 15 % tokens | **split** | 2.78 ms/step, far inside; +19.2 % tokens, outside the point prediction, inside the falsification threshold |
+| P5.1 | Enrichment ≤ 150 ms/step and ≤ 15 % tokens | **split** | 2.73 ms/step, far inside; +18.3 % tokens, outside the point prediction, inside the falsification threshold |
 
-Seven claims tested, five not run. Of the seven tested: three held cleanly
+Eight claims tested, four not run. Of the eight tested: three held cleanly
 (P1.2, P1.3, P1.4), one held beyond its threshold (P2.1), one is half right
 (P5.1), one is half right in a way worth stating precisely (P1.1), one is
-**falsified** (P2.2), and one (P3.2) was right in direction and too
-conservative in magnitude. P3.1 needed two ceilings that did not run.
+**falsified** (P2.2), one (P3.2) was right in direction and too conservative in
+magnitude, and one (P3.1) is answered at both endpoints but not in between.
 
 ### Two things I got wrong in advance, stated as such
 
 **The magnitude of the enrichment's effect.** I predicted ≤ −2.0 steps and got
-−1.60; I predicted 7–11 steps on the three defect tasks and got 12.73. I
+−1.73; I predicted 7–11 steps on the three defect tasks and got 12.73. I
 expected shortcuts to close most of the gap. They closed about two thirds of
 the *statistical* gap and much less of the arithmetic one, because the two
 tasks where the tool is worst — `calc_add_row` and `files_rename` — fail on a
@@ -312,7 +356,7 @@ On the control group, B+ costs **more money** than B: `+$0.0237 [+0.0112,
 +0.0374]` per task, an interval that excludes zero. P1.2 was written about
 steps and success and says nothing about cost, so this is not a falsification
 of anything — it is a cost the enrichment imposes on tasks it does not help,
-which is most of them. It is the same +19 % observation-token overhead seen
+which is most of them. It is the same +18 % observation-token overhead seen
 from the other side, and it is the strongest argument for making the
 closed-menu summary conditional on the task rather than unconditional.
 
@@ -337,22 +381,41 @@ menu descents is consistent with it and is not evidence for it.
 **N = 5, and the spread is not small.** The variance table in `RESULTS2.md`
 reports per-cell standard deviations. Several cells are at 0.0 — the same task
 solved the same way five times — but `menu_save_as_subdir` on arm A has
-sd 3.6 on a mean of 14.2, and the interval on the principal comparison,
-[−2.71, −0.57], is wide enough that the true effect could be a third of the
-point estimate or nearly twice it. Where intervals overlap this report says
+sd 3.4 on a mean of 14.5, and the interval on the principal comparison,
+[−2.81, −0.70], is wide enough that the true effect could be a quarter of the
+point estimate or over one and a half times it. Where intervals overlap this report says
 "no detectable difference at this N" and never "they are equal."
 
 **Temperature is not fixed.** There is no API key and no decoding parameter to
 set; the model channel is the `claude` CLI on a subscription. Decoding settings
 are identical across arms by construction, so this does not bias any
-comparison, but it widens every interval. Pairing within `(task, rep)` is the
-compensation, and it is why the paired tables are primary and the unpaired arm
-means are secondary.
+comparison, but it widens every interval. Pairing within
+`(run_tag, task, rep)` is the compensation, and it is why the paired tables are
+primary and the unpaired arm means are secondary.
 
 **Partial fifth repetition in T3.** The control group stopped at its wall-clock
 deadline with 110 of 120 runs, so some cells have n = 4. Pairing uses only
-matched `(task, rep)` pairs, so this costs power rather than introducing bias,
-and per-cell counts are printed.
+matched pairs, so this costs power rather than introducing bias, and per-cell
+counts are printed.
+
+**One ceiling is carried by one task.** At 30,000 fresh tokens the whole of
+B+'s −0.120 success deficit is `calc_add_row` (−5 of 25), with `files_save_as`
+going the other way (+2) and the remaining three tasks flat. The sweep ran five
+of the ten registered tasks, and at that width a single task decides the
+result. The 30,000 number should be read as bracketing the crossing, not as a
+measurement of the arm.
+
+**The analysis pooled conditions until it was caught.** The paired comparison
+originally keyed on `(task, rep)`, which was correct while tiers did not share
+tasks and became wrong the moment the budget sweeps re-ran five control-group
+tasks: a truncated run could be paired against an unconstrained one, and
+duplicate keys were silently collapsed. It surfaced as the enrichment's token
+overhead reading +1.6 % where it had read +19.2 %. `paired()` now keys on
+`(run_tag, task, rep)` and every non-budget table reads only unbudgeted runs
+(D7.8). The corrected headline figures are in this report; the numbers a reader
+may have seen in the previous commit were computed the old way and the
+differences are small but real — `−1.60 → −1.73` steps, `+19.2 % → +18.3 %`
+tokens.
 
 **`peak_live_images` is not what its name suggests.** It counts full
 screenshots plus crops still inside their TTL, so the value of ~21.8 for the
@@ -371,11 +434,12 @@ value is that it is not edited.
 
 ## 4. What should run next, in order
 
-1. **The rest of T5.** The 8,000 ceiling ran on five of the ten registered
-   tasks and already overturned round 1's "0/27 stopped by the budget". The
-   15,000 and 30,000 ceilings are what locate the crossing, and without them
-   the required question — below what budget does the tool win — has no
-   answer. `scripts/round2.sh t5`.
+1. **The rest of T5.** Both endpoints ran on five of the ten registered tasks:
+   8,000 overturned round 1's "0/27 stopped by the budget", and 30,000 showed
+   the point estimate changing sign. The **15,000 ceiling** is what would
+   locate the crossing the endpoints only bracket, and the other five
+   registered tasks are what would stop one task (`calc_add_row`) from
+   carrying a whole ceiling's result. `scripts/round2.sh t5`.
 2. **T6, the ablation.** P1.1 held in direction and separation, which is the
    condition `PREDICTIONS.md` §4.4 set for running it. Without it, "shortcuts
    are what work" remains an untested story about a real effect.
@@ -384,7 +448,7 @@ value is that it is not edited.
 4. **T4**, the image window and the task object. The tasks, the constraint
    decompositions and the per-constraint verifiers are all built and pass their
    controls; only the runs are missing.
-5. **Make the closed-menu summary conditional.** It costs +19 % observation
+5. **Make the closed-menu summary conditional.** It costs +18 % observation
    tokens on every task and pays on a minority of them. Emitting it only for
    applications whose menus the agent has actually opened, or only after the
    first menu click, would keep the win and drop most of the cost.
@@ -394,11 +458,11 @@ value is that it is not edited.
 ## 5. What round 2 actually established
 
 - The step gap round 1 found is **real and reproduces**: B spends
-  `+2.43 [+0.66, +4.11]` more steps than A on menu and dialog work.
-- Layer-1 enrichment **reduces it by `−1.60 [−2.71, −0.57]` steps**, enough that
+  `+2.22 [+0.43, +3.92]` more steps than A on menu and dialog work.
+- Layer-1 enrichment **reduces it by `−1.73 [−2.81, −0.70]` steps**, enough that
   B+ and A are no longer distinguishable, and does so **without harming the
   control group** on steps or success.
-- It costs **2.78 ms per step** and **+19 % observation tokens**, and the token
+- It costs **2.73 ms per step** and **+18 % observation tokens**, and the token
   side is a real cost on tasks it does not help.
 - The ambiguity rule **closes the text-only channel's worst failure completely**
   — 7/10 and 12.2 steps become 10/10 and 5.0, matching the crop-priority arm at
@@ -409,8 +473,17 @@ value is that it is not edited.
   tool is **stopped by that budget in 64 % of runs** where round 1 reported
   0 %. The round-1 headline was a property of its task subset, as
   `PREDICTIONS.md` said before any of this ran.
-- Four of the round's twelve registered claims are answered, three are answered
-  in part, one is falsified outright, and **five were not run and are reported
+- At 30,000 fresh tokens they are **still not detectably different**
+  (−0.120 [−0.320, +0.080]), but the point estimate has **changed sign**: the
+  tool is nominally ahead under a tight ceiling and nominally behind under a
+  loose one. The crossing is bracketed between the two and not located, because
+  the 15,000 ceiling did not run.
+- **No zero-success cell in the round is a harness fault.** Every one of the
+  310 audited runs ends on a step or token ceiling the experiment sets
+  deliberately — none on an exception, an unsatisfiable verifier, or an
+  executor failure — and all three rate-limited runs were re-run and replaced.
+- Five of the round's twelve registered claims are answered, three are answered
+  in part, one is falsified outright, and **four were not run and are reported
   as not run**.
 
 ## 6. Harness audit of the zero-success cells

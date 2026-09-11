@@ -87,16 +87,29 @@ def overlaps(a, b):
     return not (a[2] < b[1] or b[2] < a[1])
 
 
+def pair_key(r):
+    """What makes two runs comparable: same tier, same task, same repetition.
+
+    `run_tag` is in the key deliberately. Tiers overlap on tasks — the budget
+    sweeps re-run five tasks the control tier already ran — so keying on
+    (task, rep) alone would pair a run truncated at an 8,000-token ceiling
+    against an unconstrained run of the same task, and would silently drop
+    every duplicate but the last. Both are wrong in the same direction: they
+    mix conditions and then report the mixture as a controlled difference.
+    """
+    return (r.get("run_tag"), r["task"], r.get("rep"))
+
+
 def paired(rows_a, rows_b, field):
-    """Differences at matching (task, rep). Returns (diffs, n_pairs, n_orphan).
+    """Differences at matching (run_tag, task, rep). Returns (diffs, n, orphan).
 
     Pairing is what makes an N of five informative here: the same task at the
     same repetition index, run on two arms, differs by the arm and by decoding
     noise, and nothing else. Comparing arm means instead would drown that in
     the spread between tasks, which is an order of magnitude larger.
     """
-    idx_a = {(r["task"], r.get("rep")): r for r in rows_a}
-    idx_b = {(r["task"], r.get("rep")): r for r in rows_b}
+    idx_a = {pair_key(r): r for r in rows_a}
+    idx_b = {pair_key(r): r for r in rows_b}
     keys = sorted(set(idx_a) & set(idx_b))
     diffs = []
     for k in keys:
@@ -363,6 +376,67 @@ def table_budget(rows):
               f"| {st.mean([r['steps'] for r in v]):.1f} |")
     print()
 
+    ceilings = sorted({r["token_budget"] for r in rs})
+    print("### Paired within `(task, rep)`, at each ceiling")
+    print()
+    print("The same task and the same repetition seed, one row per pair. A "
+          "positive success difference means the enriched tool wins at that "
+          "ceiling.")
+    print()
+    print("| ceiling | pairs | success B+ − A | steps B+ − A | verdict |")
+    print("|---|---|---|---|---|")
+    crossing = []
+    for bud in ceilings:
+        sub = [r for r in rs if r["token_budget"] == bud]
+        a = [r for r in sub if r["arm"] == "A"]
+        b = [r for r in sub if r["arm"] == "B+"]
+        if not a or not b:
+            continue
+        dsucc, n, _ = paired(a, b, "success")
+        dstep, _, _ = paired(a, b, "steps")
+        if not dsucc:
+            continue
+        ds, lo, hi = boot_ci(dsucc)
+        step_ci = boot_ci(dstep) if dstep else (0.0, 0.0, 0.0)
+        win = "B+ ahead" if lo > 0 else ("A ahead" if hi < 0 else
+                                         "no detectable difference")
+        crossing.append((bud, ds, lo, hi, win))
+        print(f"| {bud:,} | {n} | {fmt(ds, lo, hi, 3)} "
+              f"| {fmt(*step_ci)} | {win} |")
+    print()
+
+    if len(crossing) >= 2:
+        print("### Where the curves cross")
+        print()
+        signs = [("+" if d > 0 else "−" if d < 0 else "0") for _, d, _, _, _ in crossing]
+        flips = [i for i in range(1, len(signs)) if signs[i] != signs[i - 1]]
+        if flips:
+            for i in flips:
+                lo_b, hi_b = crossing[i - 1][0], crossing[i][0]
+                print(f"The point estimate changes sign between "
+                      f"**{lo_b:,} and {hi_b:,} fresh tokens** "
+                      f"({crossing[i-1][1]:+.3f} → {crossing[i][1]:+.3f}). "
+                      f"Whether that is a real crossing depends on the "
+                      f"intervals in the table above, not on the point "
+                      f"estimates: read a crossing as established only where "
+                      f"the two intervals sit on opposite sides of zero.")
+        else:
+            print(f"The point estimate keeps the same sign "
+                  f"({' → '.join(f'{d:+.3f}' for _, d, _, _, _ in crossing)}) "
+                  f"across every ceiling measured "
+                  f"({', '.join(f'{b:,}' for b, _, _, _, _ in crossing)} fresh "
+                  f"tokens). **No crossing is observed in the measured "
+                  f"range.** A crossing may exist outside it; the ceilings "
+                  f"that were not run are named in REPORT2.md.")
+        print()
+        both = [c for c in crossing if c[2] > 0 or c[3] < 0]
+        if not both:
+            print("At no measured ceiling does the difference clear zero, so "
+                  "this round answers *below what budget does the tool win* "
+                  "with **no budget in the measured range, at this N** — "
+                  "which is not the same as the arms being equal.")
+            print()
+
 
 def table_constraints(rows):
     rs = [r for r in rows if r.get("constraint_results")]
@@ -425,12 +499,23 @@ def main():
     all_rows = load(paths)
     rows = usable(all_rows)
 
+    # The budget sweep is a different experiment run on the same tasks: its
+    # runs are cut off at a token ceiling by design. Pooling them into the
+    # step-gap tables would report truncated runs as if they were ordinary
+    # ones, so everything except the budget table reads the unbudgeted runs.
+    free = [r for r in rows if not r.get("token_budget")]
+
     header(rows, all_rows)
-    table_headline(rows)
+    table_headline(free)
 
     print("## 2. Experiment 1 — does the enrichment close the step gap?")
     print()
-    present = {r["arm"] for r in rows}
+    print(f"Unbudgeted runs only ({len(free)} of {len(rows)} usable). The "
+          f"{len(rows) - len(free)} runs carrying an enforced token ceiling "
+          f"belong to the budget sweep and are reported there.")
+    print()
+    present = {r["arm"] for r in free}
+    rows, budgeted = free, rows
     for base, treat in (("B", "B+"), ("A", "B+"), ("A", "B")):
         if base in present and treat in present:
             table_paired(rows, base, treat, MENU_GROUP,
@@ -451,7 +536,7 @@ def main():
                          f"{treat} against {base} — the vdelta pair")
     table_ambiguity(rows)
 
-    table_budget(rows)
+    table_budget(budgeted)
     table_constraints(rows)
     table_image_window(rows)
     table_enrich_cost(rows)

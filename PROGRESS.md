@@ -168,15 +168,24 @@ failure looks exactly like a difficult task.
 - [x] Experiment 1 control — 110 of 120 runs on the **pre-registered reduced**
       eight-task control group. The reduction was triggered by a ~3 h provider
       suspension, exactly as PREDICTIONS.md §11 said it would be.
-- [~] **Experiment 3 (budget sweep) — partial.** The 8,000 ceiling ran on the
-      first five tasks of the registered ordering, 50 runs. The 15,000 and
-      30,000 ceilings did not run, so there is no crossing point.
+- [~] **Experiment 3 (budget sweep) — both endpoints, middle missing.** The
+      8,000 and 30,000 ceilings ran on the first five tasks of the registered
+      ordering, 100 runs. The 15,000 ceiling did not run, so the crossing is
+      bracketed — the point estimate changes sign between the two — but not
+      located.
 - [ ] **Experiment 4 (image window, task object) — not run.** `t4`.
 - [ ] **Ablation — not run.** `t6`. P1.1 held in direction, so it is warranted.
+- [x] All three rate-limited runs re-run; every one has a completed
+      replacement in the data.
+- [x] Harness audit of every zero-success cell: no run ends on an exception, an
+      unsatisfiable verifier or an executor failure. `calc_add_row` diagnosed
+      as a step-ceiling artefact of cell-by-cell typing, shared by B and B+.
+- [x] Analysis correctness fix: `paired()` keys on `(run_tag, task, rep)` and
+      budget-truncated runs no longer feed the non-budget tables (D7.8).
 - [x] `RESULTS2.md` (generated), `REPORT2.md`, `DECISIONS.md` D7.
 
-**285 usable runs, 2 excluded as rate-limited, $27.40 estimated.** Seven of the
-twelve registered claims were tested; five were not run and are reported as not
-run. One is falsified: the ambiguity rule the design document specifies fired
-zero times, and the whole vdelta result belongs to the peer-set rule added
-after reading the tree.
+**341 usable runs, 3 excluded as rate-limited and all three re-run, $32.54
+estimated.** Eight of the twelve registered claims were tested; four were not
+run and are reported as not run. One is falsified: the ambiguity rule the
+design document specifies fired zero times, and the whole vdelta result belongs
+to the peer-set rule added after reading the tree.

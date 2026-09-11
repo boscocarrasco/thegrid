@@ -363,3 +363,29 @@ reads back through, and the real verifier is asked. Without a live desktop they
 report as skipped, never as passed. An unsatisfiable verifier reads exactly
 like a hard task — that already happened once, to `calc_total`, and cost eleven
 correct runs.
+
+**D7.8 Paired analysis keys on `(run_tag, task, rep)`, not `(task, rep)`.**
+The tiers overlap on tasks: the budget sweeps re-run five tasks the control
+tier had already run, at 8,000 and at 30,000 fresh tokens. Keying a pair on
+`(task, rep)` alone then does two wrong things at once — it pairs a run
+truncated at a token ceiling against an unconstrained run of the same task, and
+it silently keeps only the last of the duplicates. Both bias in the same
+direction: they mix experimental conditions and then report the mixture as a
+controlled difference. The symptom that exposed it was the enrichment's
+observation-token overhead reading +1.6 % after the 30,000 sweep landed, where
+it had read +19.2 % before; the corrected figure is +18.3 %. For the same
+reason every table except the budget sweep now reads only the runs with no
+enforced ceiling, so a budget-truncated run is never averaged in as if it were
+an ordinary one.
+
+**D7.9 A zero-success cell is audited before it is interpreted.** Every cell
+scoring 0/N was read action by action and classified by *how it ended*, because
+a broken verifier and a hard task produce the same table entry — that already
+happened once in round 1. All 310 usable runs were checked: no run ends with an
+error field set, aborts and grounding failures sit at 0.70 % and 1.6 % of
+actions, malformed replies at 0.6 % of steps and are not concentrated in the
+enriched arm, and exactly one of 207 `done`-terminated runs disagrees with its
+verifier — where the verifier is right. Every zero cell terminates on a step or
+token ceiling the experiment sets deliberately. The corollary is a reporting
+rule: a 0/5 in a budget tier is a *budget* result and must not be read as the
+arm being unable to do the task.
