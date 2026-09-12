@@ -100,16 +100,24 @@ def pair_key(r):
     return (r.get("run_tag"), r["task"], r.get("rep"))
 
 
-def paired(rows_a, rows_b, field):
+def paired(rows_a, rows_b, field, across=False):
     """Differences at matching (run_tag, task, rep). Returns (diffs, n, orphan).
 
     Pairing is what makes an N of five informative here: the same task at the
     same repetition index, run on two arms, differs by the arm and by decoding
     noise, and nothing else. Comparing arm means instead would drown that in
     the spread between tasks, which is an order of magnitude larger.
+
+    `across=True` drops run_tag from the key, and is only correct where the tag
+    *is* the condition being manipulated: the ablation arms ran in their own
+    tier, and experiment 4's image window and task object are one tag each.
+    There the two sides differ by the manipulated variable and by when they
+    ran, which is a weaker control than a tier that interleaves its arms — so
+    every table that uses it says so.
     """
-    idx_a = {pair_key(r): r for r in rows_a}
-    idx_b = {pair_key(r): r for r in rows_b}
+    key = (lambda r: (r["task"], r.get("rep"))) if across else pair_key
+    idx_a = {key(r): r for r in rows_a}
+    idx_b = {key(r): r for r in rows_b}
     keys = sorted(set(idx_a) & set(idx_b))
     diffs = []
     for k in keys:
@@ -491,6 +499,128 @@ def table_image_window(rows):
     print()
 
 
+LONG_FOUR = ["long_march_export", "long_notes_digest",
+             "long_ledger_edits", "long_region_transfer"]
+
+ABLATIONS = [("B+nb", "blocks"), ("B+nr", "reachability"), ("B+nk", "shortcuts")]
+
+
+def _tag(rows, tag):
+    return [r for r in rows if r.get("run_tag") == tag]
+
+
+def table_ablation(rows):
+    """Which of the three enrichments carries the effect."""
+    base = [r for r in rows if r["arm"] == "B+" and r["task"] in MENU_GROUP
+            and not r.get("token_budget")]
+    arms = {a for a, _ in ABLATIONS} & {r["arm"] for r in rows}
+    if not arms or not base:
+        print("## Ablation — which enrichment does the work")
+        print()
+        print("**Not run.** No records for `B+nb`, `B+nr` or `B+nk`.")
+        print()
+        return
+    print("## Ablation — which enrichment does the work")
+    print()
+    print("Each arm computes the whole enrichment and then withholds one "
+          "thing, so the cost of computing it is identical across arms and "
+          "only what the model sees changes. A **positive** step difference "
+          "means removing that enrichment made the agent spend more steps — "
+          "that enrichment was doing work.")
+    print()
+    print("*Paired on `(task, rep)` across tiers.* The ablation arms ran in "
+          "their own tier rather than interleaved with `B+`, so these pairs "
+          "share the task, the seed and every setting, but not the hour they "
+          "ran in. That is a weaker control than the interleaved comparisons "
+          "above, and the intervals should be read with that in mind.")
+    print()
+    print("| withheld | arm | pairs | steps vs B+ | success vs B+ | verdict |")
+    print("|---|---|---|---|---|---|")
+    for arm, what in ABLATIONS:
+        sub = [r for r in rows if r["arm"] == arm and r["task"] in MENU_GROUP]
+        if not sub:
+            continue
+        ds, n, _ = paired(base, sub, "steps", across=True)
+        su, _, _ = paired(base, sub, "success", across=True)
+        if not ds:
+            continue
+        d = boot_ci(ds)
+        s = boot_ci(su) if su else (0.0, 0.0, 0.0)
+        verdict = ("**carries work**" if d[1] > 0 else
+                   ("**costs steps when present**" if d[2] < 0 else
+                    "no detectable difference at this N"))
+        print(f"| {what} | `{arm}` | {n} | {fmt(*d)} | {fmt(*s, 3)} "
+              f"| {verdict} |")
+    print()
+    print("| arm | menu-group success | menu-group steps |")
+    print("|---|---|---|")
+    for arm in ["B+"] + [a for a, _ in ABLATIONS]:
+        sub = [r for r in rows if r["arm"] == arm and r["task"] in MENU_GROUP
+               and not r.get("token_budget")]
+        if not sub:
+            continue
+        print(f"| {arm} | {sum(1 for r in sub if r['success'])}/{len(sub)} "
+              f"| {st.mean([r['steps'] for r in sub]):.2f} |")
+    print()
+
+
+def table_long(rows):
+    """Experiment 4 — the image window and the persistent task object."""
+    cfg = {t: _tag(rows, t) for t in
+           ("t4_long_full", "t4_long_wide", "t4_long_notobj", "t4_long_base")}
+    if not cfg["t4_long_full"]:
+        print("## Experiment 4 — long tasks, image window and task object")
+        print()
+        print("**Not run.** No records tagged `t4_long_*`.")
+        print()
+        return
+    print("## Experiment 4 — long tasks, image window and task object")
+    print()
+    print("Four tasks of 40 allowed steps, five repetitions each. The three "
+          "`B+` configurations differ by exactly one setting, and each setting "
+          "is its own tier, so these are paired on `(task, rep)` across tiers: "
+          "same task, same seed, same everything but the manipulated variable "
+          "and the hour it ran in.")
+    print()
+    print("| configuration | n | success | steps | peak live images "
+          "| peak image tokens | re-anchors | compactions | est. $ |")
+    print("|---|---|---|---|---|---|---|---|---|")
+    label = {"t4_long_full": "B+ · window 2 · task object **on**",
+             "t4_long_wide": "B+ · window **4** · task object on",
+             "t4_long_notobj": "B+ · window 2 · task object **off**",
+             "t4_long_base": "A · baseline (screenshot each step)"}
+    for t in ("t4_long_full", "t4_long_wide", "t4_long_notobj", "t4_long_base"):
+        v = cfg[t]
+        if not v:
+            continue
+        print(f"| {label[t]} | {len(v)} "
+              f"| {fmt(*boot_ci([1.0 if r['success'] else 0.0 for r in v]), 3)} "
+              f"| {st.mean([r['steps'] for r in v]):.1f} "
+              f"| {st.mean([r['peak_live_images'] for r in v]):.1f} "
+              f"| {st.mean([r['peak_live_image_tokens'] for r in v]):,.0f} "
+              f"| {st.mean([r.get('reanchors', 0) for r in v]):.1f} "
+              f"| {st.mean([r.get('compactions', 0) for r in v]):.1f} "
+              f"| ${st.mean([r['cost_usd'] for r in v]):.4f} |")
+    print()
+    print("| comparison | pairs | peak image tokens | steps | success |")
+    print("|---|---|---|---|---|")
+    for a, b, name in (
+            ("t4_long_wide", "t4_long_full", "window 2 against window 4"),
+            ("t4_long_notobj", "t4_long_full", "task object on against off"),
+            ("t4_long_base", "t4_long_full", "B+ against the baseline A")):
+        ra, rb = cfg[a], cfg[b]
+        if not ra or not rb:
+            continue
+        tk, n, _ = paired(ra, rb, "peak_live_image_tokens", across=True)
+        sp, _, _ = paired(ra, rb, "steps", across=True)
+        su, _, _ = paired(ra, rb, "success", across=True)
+        if not tk:
+            continue
+        print(f"| {name} | {n} | {fmt(*boot_ci(tk), 0)} "
+              f"| {fmt(*boot_ci(sp))} | {fmt(*boot_ci(su), 3)} |")
+    print()
+
+
 def main():
     paths = sys.argv[1:] or sorted(glob.glob("results/raw2/*.jsonl"))
     if not paths:
@@ -537,7 +667,9 @@ def main():
     table_ambiguity(rows)
 
     table_budget(budgeted)
+    table_long(rows)
     table_constraints(rows)
+    table_ablation(rows)
     table_image_window(rows)
     table_enrich_cost(rows)
     table_by_task(rows)

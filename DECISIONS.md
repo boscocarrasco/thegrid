@@ -389,3 +389,27 @@ verifier — where the verifier is right. Every zero cell terminates on a step o
 token ceiling the experiment sets deliberately. The corollary is a reporting
 rule: a 0/5 in a budget tier is a *budget* result and must not be read as the
 arm being unable to do the task.
+
+**D7.10 Two tables pair across tiers, and say so where they are printed.**
+The ablation arms and experiment 4's three configurations each ran as their own
+tier, because the manipulated variable *is* the tier: `B+nb` is not an arm you
+can interleave with `B+` without running a separate condition anyway. So for
+those two comparisons `paired()` drops `run_tag` from the key, and the two
+sides then share the task, the seed and every setting except the manipulated
+variable and the hour they ran in. That is a weaker control than the
+interleaved tiers, and it is stated in the generated table itself rather than
+only in the report, because the table is what gets quoted. D7.8's within-tier
+default stands everywhere else: it exists to stop a budget-truncated run being
+paired against an unconstrained one, which is a different error entirely.
+
+**D7.11 The spend cap was lifted by instruction, and the round reports what it
+actually cost.** `PREDICTIONS.md` §11 set $80 estimated with a stop at 85 %,
+and the guard worked — it was about to end the round at $63.05 with experiment
+4 two-thirds measured and the ablation unstarted. It was lifted on explicit
+instruction and the round finished at $92.04 estimated. The guard machinery was
+kept, with a high ceiling, rather than deleted: a run with no ceiling at all is
+a run whose cost nobody can state afterwards. REPORT2.md §0 names the overrun in
+both directions — 15 % over the stated budget, 45 % over the guard's stopping
+point — because the three tiers that money bought are the ones that falsified a
+prediction, answered a question no other tier could, and completed the sweep.
+A reader deciding whether this method is affordable needs the real number.
