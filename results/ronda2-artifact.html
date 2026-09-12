@@ -29,24 +29,32 @@
 body{margin:0;background:var(--ground);color:var(--ink);
      font-family:var(--sans);font-size:17px;line-height:1.62;
      -webkit-font-smoothing:antialiased}
-.wrap{max-width:880px;margin:0 auto;padding-inline:24px;padding-block:0 88px}
+.wrap{max-width:900px;margin:0 auto;padding-inline:24px;padding-block:0 88px}
 
 h1,h2,h3{font-family:var(--serif);font-weight:600;text-wrap:balance;margin:0;line-height:1.16}
 h1{font-size:clamp(2.15rem,6vw,3.3rem);line-height:1.03;letter-spacing:-.012em}
-h2{font-size:clamp(1.45rem,3.3vw,1.9rem);letter-spacing:-.004em}
-h3{font-size:1.06rem;font-family:var(--sans);font-weight:600}
+h2{font-size:clamp(1.4rem,3.2vw,1.82rem);letter-spacing:-.004em}
 p{margin:0}
 em{font-style:italic;color:var(--ink-2)}
 b,strong{font-weight:600;color:var(--ink)}
 
 .eyebrow{font-family:var(--mono);font-size:.69rem;font-weight:500;
          letter-spacing:.17em;text-transform:uppercase;color:var(--accent)}
-.lede{font-family:var(--serif);font-size:clamp(1.1rem,2.2vw,1.3rem);
+.lede{font-family:var(--serif);font-size:clamp(1.1rem,2.2vw,1.28rem);
       line-height:1.5;color:var(--ink-2)}
-.note{color:var(--ink-2);font-size:.96rem}
+.note{color:var(--ink-2);font-size:.95rem}
 .tiny{color:var(--ink-3);font-size:.83rem;line-height:1.55}
 code{font-family:var(--mono);font-size:.84em;color:var(--ink);
      background:var(--sunk);border-radius:3px;padding:.1em .34em}
+
+/* El nombre del brazo es la unidad de lectura de toda la página: siempre se
+   escribe igual, en monoespaciado y encapsulado, nunca parafraseado. */
+.arm{font-family:var(--mono);font-size:.84em;font-weight:500;color:var(--ink);
+     background:var(--sunk);border:1px solid var(--rule);border-radius:3px;
+     padding:.06em .36em;white-space:nowrap;letter-spacing:.01em}
+.arm.hi{color:var(--accent);border-color:hsl(186,22%,34%)}
+.arm.base{color:var(--ink-3)}
+.vs{color:var(--ink-3);font-family:var(--mono);font-size:.8em;padding-inline:.28em}
 
 header{border-bottom:1px solid var(--rule)}
 header .wrap{padding-block:72px 38px;display:flex;flex-direction:column;gap:28px}
@@ -58,17 +66,17 @@ header .wrap{padding-block:72px 38px;display:flex;flex-direction:column;gap:28px
 .ledger .k{font-size:.81rem;color:var(--ink-3);line-height:1.34}
 .ledger .hi .v{color:var(--accent)}
 
-section{padding-top:62px}
-.head{display:flex;flex-direction:column;gap:10px;margin-bottom:24px;max-width:66ch}
+section{padding-top:60px}
+.head{display:flex;flex-direction:column;gap:9px;margin-bottom:22px;max-width:68ch}
 .stack{display:flex;flex-direction:column;gap:20px}
-.prose{max-width:66ch;display:flex;flex-direction:column;gap:14px}
+.prose{max-width:68ch;display:flex;flex-direction:column;gap:12px}
 
 .tw{overflow-x:auto;border-block:1px solid var(--rule)}
 table{border-collapse:collapse;width:100%;font-size:.89rem}
 caption{caption-side:bottom;text-align:left;padding:12px 0 0;
-        font-size:.83rem;color:var(--ink-3);max-width:72ch}
+        font-size:.83rem;color:var(--ink-3);max-width:76ch}
 th,td{padding:9px 16px 9px 0;text-align:right;white-space:nowrap;
-      border-bottom:1px solid var(--rule-soft)}
+      border-bottom:1px solid var(--rule-soft);vertical-align:middle}
 th:first-child,td:first-child{text-align:left;padding-left:0;white-space:normal}
 th:last-child,td:last-child{padding-right:0}
 thead th{font-family:var(--mono);font-size:.67rem;font-weight:500;color:var(--ink-3);
@@ -77,16 +85,29 @@ thead th{font-family:var(--mono);font-size:.67rem;font-weight:500;color:var(--in
 tbody tr:last-child td{border-bottom:none}
 td.n{font-family:var(--mono);font-variant-numeric:tabular-nums}
 td.win{color:var(--good)} td.lose{color:var(--bad)}
+td.mute{color:var(--ink-3)}
 tr.mark td{background:var(--raise)}
+tr.rule-top td{border-top:1px solid var(--rule)}
 .ci{color:var(--ink-3);font-size:.85em}
+.yes{color:var(--good)} .no{color:var(--ink-3)}
+
+/* Barra dentro de la celda: el número sigue siendo el dato, la barra solo
+   hace comparable de un vistazo una columna de proporciones. */
+.mb{display:inline-block;vertical-align:middle;width:52px;height:5px;
+    background:var(--sunk);border-radius:3px;margin-left:10px;position:relative;
+    border:1px solid var(--rule-soft)}
+.mb i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;
+      background:var(--accent);width:var(--w)}
+.mb.base i{background:var(--flat)}
 
 /* El elemento que estructura la página: cada comparación se dibuja a escala
    con su línea de cero, para que "se solapa con cero" se vea en vez de solo
    leerse. --lo/--p/--hi son porcentajes ya calculados sobre el rango. */
 .ivs{display:flex;flex-direction:column;border-top:1px solid var(--rule)}
-.iv{display:grid;grid-template-columns:minmax(0,13rem) minmax(110px,1fr) minmax(0,11rem);
+.iv{display:grid;grid-template-columns:minmax(0,14rem) minmax(110px,1fr) minmax(0,11rem);
     gap:16px;align-items:center;padding-block:12px;border-bottom:1px solid var(--rule-soft)}
-.iv .lab{font-size:.91rem;line-height:1.32}
+.iv .lab{font-size:.91rem;line-height:1.5}
+.iv .lab small{display:block;color:var(--ink-3);font-size:.8rem;line-height:1.3}
 .iv .val{font-family:var(--mono);font-size:.8rem;font-variant-numeric:tabular-nums;
          color:var(--ink-3);text-align:right}
 .track{position:relative;height:20px}
@@ -99,7 +120,7 @@ tr.mark td{background:var(--raise)}
 .iv.sep .bar{background:var(--good)} .iv.sep .pt{background:var(--good)}
 .iv.neg .bar{background:var(--bad)}  .iv.neg .pt{background:var(--bad)}
 .iv.sep .val,.iv.neg .val{color:var(--ink-2)}
-.scale{display:grid;grid-template-columns:minmax(0,13rem) minmax(110px,1fr) minmax(0,11rem);
+.scale{display:grid;grid-template-columns:minmax(0,14rem) minmax(110px,1fr) minmax(0,11rem);
        gap:16px;padding-top:7px}
 .ticks{position:relative;height:1.2em;font-family:var(--mono);font-size:.68rem;color:var(--ink-3)}
 .ticks span{position:absolute;transform:translateX(-50%);white-space:nowrap}
@@ -114,26 +135,26 @@ tr.mark td{background:var(--raise)}
 }
 
 .verdicts{display:flex;flex-direction:column;border-top:1px solid var(--rule)}
-.vd{display:grid;grid-template-columns:8.5rem 1fr;gap:20px;padding-block:15px;
-    border-bottom:1px solid var(--rule-soft);align-items:baseline}
-.vd .tag{font-family:var(--mono);font-size:.7rem;letter-spacing:.08em;
+.vd{display:grid;grid-template-columns:7.5rem 1fr;gap:20px;padding-block:13px;
+    border-bottom:1px solid var(--rule-soft);align-items:baseline;font-size:.95rem}
+.vd .tag{font-family:var(--mono);font-size:.68rem;letter-spacing:.08em;
          text-transform:uppercase;padding-top:.25em}
 .vd.y .tag{color:var(--good)} .vd.n .tag{color:var(--bad)} .vd.o .tag{color:var(--ink-3)}
 @media (max-width:560px){.vd{grid-template-columns:1fr;gap:3px}}
 
 .aside{border-left:2px solid var(--accent);padding:3px 0 3px 20px;
-       display:flex;flex-direction:column;gap:9px;max-width:68ch}
-.aside .t{font-family:var(--serif);font-size:1.04rem;font-weight:600}
+       display:flex;flex-direction:column;gap:8px;max-width:70ch}
+.aside .t{font-family:var(--serif);font-size:1.02rem;font-weight:600}
 
 figure{margin:0;display:flex;flex-direction:column;gap:10px}
 figure img{display:block;max-width:100%;height:auto;border:1px solid var(--rule);background:var(--sunk)}
 figcaption{font-size:.86rem;color:var(--ink-2);line-height:1.5}
 .figrow{display:grid;gap:22px;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));align-items:start}
 
-ul{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:9px;max-width:66ch}
+ul{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:8px;max-width:70ch}
 li::marker{color:var(--ink-3)}
 
-footer{margin-top:70px;padding-top:24px;border-top:1px solid var(--rule);
+footer{margin-top:68px;padding-top:24px;border-top:1px solid var(--rule);
        display:flex;flex-direction:column;gap:12px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 :where(a,button):focus-visible{outline:2px solid var(--accent);outline-offset:3px}
@@ -145,18 +166,16 @@ a{color:var(--accent);text-underline-offset:2px}
     <div class="title-block">
       <span class="eyebrow">Ronda 2 · capa de observación para agentes de computer use</span>
       <h1>Bloques, atajos y ambigüedad</h1>
-      <p class="lede">La ronda 1 dejó un defecto medido: darle al agente una
-      lista plana de elementos le cuesta <em>más</em> pasos que enseñarle una
-      foto del menú. Esta ronda enriquece la lista —la agrupa en bloques, marca
-      lo que está tapado, lee los atajos sin abrir el menú— y comprueba si eso
-      cierra la diferencia. Las doce predicciones se escribieron y se congelaron
-      <em>antes</em> de ejecutar nada. <b>Dos salieron falsas.</b></p>
+      <p class="lede">Ocho brazos, 28 tareas, 841 ejecuciones. Cada brazo ve la
+      pantalla de una manera distinta y todo lo demás es idéntico. Las doce
+      predicciones se congelaron antes de ejecutar nada. <b>Dos salieron
+      falsas.</b></p>
     </div>
     <div class="ledger">
-      <div><span class="v">841</span><span class="k">ejecuciones utilizables, 4 excluidas y las 4 repetidas</span></div>
+      <div><span class="v">841</span><span class="k">ejecuciones utilizables, 4 excluidas y repetidas</span></div>
       <div><span class="v">12 / 12</span><span class="k">predicciones registradas, todas contestadas</span></div>
-      <div class="hi"><span class="v">2</span><span class="k">falsadas: qué enriquecimiento manda, y qué regla dispara</span></div>
-      <div><span class="v">$92</span><span class="k">coste <em>estimado</em>, un 15 % por encima del presupuesto</span></div>
+      <div class="hi"><span class="v">2</span><span class="k">falsadas: P1.5 y P2.2</span></div>
+      <div><span class="v">$92</span><span class="k">coste <em>estimado</em> de la ronda</span></div>
     </div>
   </div>
 </header>
@@ -166,92 +185,189 @@ a{color:var(--accent);text-underline-offset:2px}
 <!-- ============================================================ 1 -->
 <section>
   <div class="head">
-    <span class="eyebrow">Qué se comparó</span>
-    <h2>Cinco canales, todo lo demás idéntico</h2>
-    <p class="note">Mismo modelo, mismo prompt, mismas tareas, mismo límite de
-    pasos, mismas semillas. Solo cambia qué ve el modelo y cómo señala dónde
-    actuar. Los brazos se ejecutan intercalados para que cualquier deriva los
-    afecte por igual.</p>
+    <span class="eyebrow">Los brazos</span>
+    <h2>Qué ve cada uno y cómo actúa</h2>
+    <p class="note">Mismo modelo, mismo prompt, mismas tareas, mismas semillas,
+    mismo límite de pasos. Solo cambia el canal de observación. Los brazos se
+    ejecutan intercalados para que cualquier deriva los afecte por igual.</p>
   </div>
   <div class="tw">
     <table>
-      <thead><tr><th>Brazo</th><th>Qué recibe en cada paso</th><th>Cómo actúa</th></tr></thead>
+      <thead><tr><th>Brazo</th><th>Qué recibe en cada paso</th><th>Cómo señala dónde actuar</th><th>Para qué está</th></tr></thead>
       <tbody>
-        <tr><td><b>A</b> · línea base</td><td>captura de pantalla completa, que reemplaza a la anterior</td><td>coordenadas en píxeles</td></tr>
-        <tr><td><b>B</b> · herramienta</td><td>tabla de elementos al empezar, después solo el delta con verbos + recortes</td><td>id de elemento</td></tr>
-        <tr class="mark"><td><b>B+</b> · herramienta enriquecida</td><td>igual que B, más bloques, alcanzabilidad, atajos de teclado y marcas de ambigüedad</td><td>id de elemento</td></tr>
-        <tr><td><b>C</b> · solo texto</td><td>igual que B pero sin ningún recorte de píxeles</td><td>id de elemento</td></tr>
-        <tr><td><b>C+</b> · solo texto + ambigüedad</td><td>igual que C, salvo que la ambigüedad <em>obliga</em> a mandar un recorte</td><td>id de elemento</td></tr>
+        <tr>
+          <td><span class="arm base">A</span></td>
+          <td>Captura de pantalla completa, que reemplaza a la anterior</td>
+          <td>Coordenadas en píxeles</td>
+          <td>Línea base</td>
+        </tr>
+        <tr>
+          <td><span class="arm">B</span></td>
+          <td>Tabla de elementos al empezar; después solo el delta con verbos, más un recorte de píxeles de cada región que cambia</td>
+          <td>Id de elemento</td>
+          <td>La herramienta de la ronda 1</td>
+        </tr>
+        <tr class="mark">
+          <td><span class="arm hi">B+</span></td>
+          <td>Igual que <span class="arm">B</span>, más <b>bloques</b>, <b>alcanzabilidad</b>, <b>atajos de teclado</b> y marcas de <b>ambigüedad</b></td>
+          <td>Id de elemento</td>
+          <td>El tratamiento de esta ronda</td>
+        </tr>
+        <tr>
+          <td><span class="arm">C</span></td>
+          <td>Igual que <span class="arm">B</span> pero sin ningún recorte de píxeles</td>
+          <td>Id de elemento</td>
+          <td>Canal de solo texto</td>
+        </tr>
+        <tr>
+          <td><span class="arm">C+</span></td>
+          <td>Igual que <span class="arm">C</span>, salvo que una marca de ambigüedad <em>obliga</em> a mandar un recorte</td>
+          <td>Id de elemento</td>
+          <td>Solo texto, con la excepción justa</td>
+        </tr>
+        <tr class="rule-top">
+          <td><span class="arm">B+nb</span></td>
+          <td>Calcula todo el enriquecimiento y <b>oculta los bloques</b></td>
+          <td>Id de elemento</td>
+          <td rowspan="3">Ablación: el coste de calcular es idéntico, solo cambia lo que el modelo ve</td>
+        </tr>
+        <tr>
+          <td><span class="arm">B+nr</span></td>
+          <td>Calcula todo y <b>oculta la alcanzabilidad</b></td>
+          <td>Id de elemento</td>
+        </tr>
+        <tr>
+          <td><span class="arm">B+nk</span></td>
+          <td>Calcula todo y <b>oculta los atajos de teclado</b></td>
+          <td>Id de elemento</td>
+        </tr>
       </tbody>
       <caption>28 tareas: 22 cortas y 6 largas de hasta 40 pasos. Cada una
       termina en una comprobación automática del estado final —bytes de un
-      fichero, celda de un CSV, estado de la página leído por CDP. Ningún modelo
-      juzga el éxito. Los 28 verificadores tienen control positivo y negativo.</caption>
+      fichero, celda de un CSV, estado de la página leído por CDP—. Ningún modelo
+      juzga el éxito; los 28 verificadores tienen control positivo y negativo.</caption>
     </table>
   </div>
-</section>
 
-<!-- ============================================================ 1b -->
-<section>
-  <div class="head">
-    <span class="eyebrow">De dónde viene esto · ronda 1</span>
-    <h2>Lo que quedó establecido, y lo que quedó roto</h2>
-    <p class="note">La ronda anterior comparó cuatro canales en 352 ejecuciones
-    por $22,96 <em>estimados</em>. Sus datos crudos no se han tocado en esta
-    ronda; se resumen aquí porque la ronda 2 solo tiene sentido leída contra
-    ellos.</p>
-  </div>
-  <div class="tw">
+  <div class="tw" style="margin-top:34px">
     <table>
-      <thead><tr><th>Brazo</th><th>n</th><th>Éxito</th><th>Pasos</th><th>Tokens / tarea</th><th>Imagen / tarea</th><th>Caché</th><th>Coste / completada</th></tr></thead>
+      <thead><tr><th>Qué añade <span class="arm hi">B+</span></th><th>Qué resuelve</th><th>ms / paso</th></tr></thead>
       <tbody>
-        <tr><td><b>A</b> · línea base</td><td class="n">62</td><td class="n">0,903 <span class="ci">[0,82–0,97]</span></td><td class="n">9,0</td><td class="n">22.144</td><td class="n">10.993</td><td class="n">17,1 %</td><td class="n">$0,0860</td></tr>
-        <tr class="mark"><td><b>B</b> · recorte primero</td><td class="n">74</td><td class="n">0,919 <span class="ci">[0,85–0,97]</span></td><td class="n">11,6</td><td class="n">83.805</td><td class="n win">1.696</td><td class="n">90,7 %</td><td class="n win">$0,0606</td></tr>
-        <tr><td><b>C</b> · solo texto</td><td class="n">74</td><td class="n">0,838 <span class="ci">[0,76–0,92]</span></td><td class="n">12,2</td><td class="n">93.870</td><td class="n">1.807</td><td class="n">90,7 %</td><td class="n">$0,0808</td></tr>
-        <tr><td><b>D</b> · sin deltas</td><td class="n">61</td><td class="n">0,902 <span class="ci">[0,82–0,97]</span></td><td class="n">9,6</td><td class="n">176.599</td><td class="n">12.139</td><td class="n">84,3 %</td><td class="n lose">$0,1640</td></tr>
+        <tr><td><b>Bloques</b></td><td>Agrupa los elementos en regiones fijas y variables: la lista plana no dice qué va con qué</td><td class="n">0,05</td></tr>
+        <tr><td><b>Alcanzabilidad</b></td><td>Marca lo que está tapado y por qué elemento lo está</td><td class="n">0,35</td></tr>
+        <tr><td><b>Atajos de teclado</b></td><td>Lee los aceleradores de los menús <em>cerrados</em>, sin abrirlos</td><td class="n">3,52</td></tr>
+        <tr><td><b>Ambigüedad</b></td><td>Marca elementos que la tabla no puede distinguir entre sí</td><td class="n">0,05</td></tr>
+        <tr><td><b>Fusión por geometría</b></td><td>Colapsa duplicados que el árbol reporta dos veces</td><td class="n">0,19</td></tr>
       </tbody>
-      <caption>271 ejecuciones de la tanda principal, más 81 con presupuesto
-      igualado. Coste <em>estimado</em> a partir de tokens y tarifa publicada,
-      no gasto observado.</caption>
+      <caption>Coste medido dentro del observador, 172 ejecuciones de
+      <span class="arm hi">B+</span>: <b>4,16 ms por paso en total</b>.</caption>
     </table>
-  </div>
-  <div class="verdicts">
-    <div class="vd y"><span class="tag">Establecido</span><p class="note"><b>Desaparece el fallo de grounding</b>, de 0,21 clics fallidos por tarea a 0,00. El agente elige un id de una lista y las coordenadas las pone el sistema operativo: no es raro, es imposible.</p></div>
-    <div class="vd y"><span class="tag">Establecido</span><p class="note"><b>Con presupuesto igualado gana sin discusión</b>: con un techo de 8.000 tokens frescos, 27/27 tareas frente a 17/27 de la línea base, y su intervalo no se solapa con ninguno.</p></div>
-    <div class="vd y"><span class="tag">Establecido</span><p class="note"><b>En tareas largas es 2,3× más barato</b> por tarea completada, y ahí los intervalos de coste de A y B tampoco se solapan. La ventaja viene de los deltas, no de la tabla: el brazo D, que tiene la tabla y no manda deltas, es el más caro de todos.</p></div>
-    <div class="vd o"><span class="tag">Sin señal</span><p class="note">Con tokens ilimitados <b>no mejora el éxito</b>: 0,919 frente a 0,903, intervalos solapados. Y usa 3,8× más tokens brutos, porque el contexto append-only se relee entero cada paso.</p></div>
-    <div class="vd n"><span class="tag">Roto</span><p class="note"><b>En tareas de menú y diálogo costaba pasos</b>. Una lista plana de elementos no dice qué está agrupado con qué, qué está tapado ni qué se abre con una tecla. Ese defecto medido es el que esta ronda intenta arreglar.</p></div>
   </div>
 </section>
 
 <!-- ============================================================ 2 -->
 <section>
   <div class="head">
-    <span class="eyebrow">Experimento 1 · el defecto</span>
+    <span class="eyebrow">Resultados</span>
+    <h2>Los ocho brazos, todas las tareas</h2>
+    <p class="note">Agregado de las 841 ejecuciones. Los intervalos son bootstrap
+    al 95 %. El dinero es <em>estimado</em> a partir de los tokens y la tarifa
+    publicada, no gasto observado.</p>
+  </div>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Brazo</th><th>n</th><th>Éxito</th><th>Pasos</th><th>Tokens frescos</th><th>Tokens de imagen</th><th>$ est. / tarea</th><th>Clics fallidos</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="arm base">A</span></td><td class="n">132</td>
+          <td class="n">0,727 <span class="mb base"><i style="--w:72.7%"></i></span></td>
+          <td class="n">12,50</td><td class="n">33.757</td><td class="n lose">15.350</td>
+          <td class="n">0,1476</td><td class="n lose">0,41</td>
+        </tr>
+        <tr>
+          <td><span class="arm">B</span></td><td class="n">112</td>
+          <td class="n">0,768 <span class="mb"><i style="--w:76.8%"></i></span></td>
+          <td class="n">10,52</td><td class="n win">15.672</td><td class="n win">2.556</td>
+          <td class="n win">0,0930</td><td class="n win">0,00</td>
+        </tr>
+        <tr class="mark">
+          <td><span class="arm hi">B+</span></td><td class="n">172</td>
+          <td class="n win">0,814 <span class="mb"><i style="--w:81.4%"></i></span></td>
+          <td class="n">13,41</td><td class="n">27.036</td><td class="n">3.104</td>
+          <td class="n">0,1631</td><td class="n win">0,00</td>
+        </tr>
+        <tr>
+          <td><span class="arm">B+nb</span></td><td class="n">35</td>
+          <td class="n">0,743 <span class="mb"><i style="--w:74.3%"></i></span></td>
+          <td class="n">13,37</td><td class="n">21.873</td><td class="n">3.129</td>
+          <td class="n">0,1314</td><td class="n">0,00</td>
+        </tr>
+        <tr>
+          <td><span class="arm">B+nr</span></td><td class="n">35</td>
+          <td class="n win">0,914 <span class="mb"><i style="--w:91.4%"></i></span></td>
+          <td class="n">11,71</td><td class="n">19.621</td><td class="n">2.865</td>
+          <td class="n">0,1169</td><td class="n">0,00</td>
+        </tr>
+        <tr>
+          <td><span class="arm">B+nk</span></td><td class="n">35</td>
+          <td class="n">0,771 <span class="mb"><i style="--w:77.1%"></i></span></td>
+          <td class="n">12,66</td><td class="n">19.977</td><td class="n">3.033</td>
+          <td class="n">0,1212</td><td class="n">0,00</td>
+        </tr>
+        <tr>
+          <td><span class="arm">C</span></td><td class="n">10</td>
+          <td class="n">0,700 <span class="mb"><i style="--w:70%"></i></span></td>
+          <td class="n">12,20</td><td class="n">27.024</td><td class="n">2.456</td>
+          <td class="n lose">0,1802</td><td class="n">0,00</td>
+        </tr>
+        <tr>
+          <td><span class="arm">C+</span></td><td class="n">10</td>
+          <td class="n win">1,000 <span class="mb"><i style="--w:100%"></i></span></td>
+          <td class="n win">5,00</td><td class="n win">3.343</td><td class="n win">1.338</td>
+          <td class="n win">0,0197</td><td class="n">0,00</td>
+        </tr>
+      </tbody>
+      <caption><span class="arm">C</span> y <span class="arm">C+</span> solo
+      corren el par de tareas donde el color decide, así que sus filas no son
+      comparables con las demás en términos absolutos —solo entre sí—. Los brazos
+      de ablación corren solo el grupo de menús. <b>Todo clic fallido está en
+      <span class="arm base">A</span></b>: los demás eligen un id de una lista y
+      las coordenadas las pone el sistema operativo.</caption>
+    </table>
+  </div>
+</section>
+
+<!-- ============================================================ 3 -->
+<section>
+  <div class="head">
+    <span class="eyebrow">Experimento 1 · el defecto de la ronda 1</span>
     <h2>El enriquecimiento cierra dos tercios de la brecha</h2>
     <p class="note">Diferencias emparejadas dentro de <code>(tier, tarea,
-    repetición)</code>. El punto es la estimación; la barra, el intervalo
-    bootstrap al 95 %. Si la barra cruza la línea de cero, no hay diferencia
-    detectable con esta N.</p>
+    repetición)</code>. El punto es la estimación; la barra, el intervalo al
+    95 %. Si la barra cruza el cero, no hay diferencia detectable con esta N.</p>
   </div>
   <div class="ivs">
     <div class="iv neg" style="--zero:50%;--lo:56.1%;--p:77.8%;--hi:98.6%">
-      <span class="lab">La herramienta sin enriquecer, contra la línea base</span>
+      <span class="lab"><span class="arm">B</span><span class="vs">−</span><span class="arm base">A</span>
+      <small>grupo de menús y diálogos, 37 pares</small></span>
       <span class="track"><i class="bar"></i><i class="pt"></i></span>
       <span class="val">+2,22 [+0,49, +3,89]</span>
     </div>
     <div class="iv sep" style="--zero:50%;--lo:15.3%;--p:28.4%;--hi:40.9%">
-      <span class="lab">El enriquecimiento, contra la herramienta sin él</span>
+      <span class="lab"><span class="arm hi">B+</span><span class="vs">−</span><span class="arm">B</span>
+      <small>mismo grupo, 37 pares</small></span>
       <span class="track"><i class="bar"></i><i class="pt"></i></span>
       <span class="val">−1,73 [−2,78, −0,73]</span>
     </div>
     <div class="iv" style="--zero:50%;--lo:29.0%;--p:56.1%;--hi:81.8%">
-      <span class="lab">El enriquecimiento, contra la línea base</span>
+      <span class="lab"><span class="arm hi">B+</span><span class="vs">−</span><span class="arm base">A</span>
+      <small>mismo grupo, 37 pares</small></span>
       <span class="track"><i class="bar"></i><i class="pt"></i></span>
       <span class="val">+0,49 [−1,68, +2,54]</span>
     </div>
     <div class="iv sep" style="--zero:50%;--lo:38.4%;--p:43.5%;--hi:48.0%">
-      <span class="lab">Grupo de control, 15 tareas: enriquecido contra sin enriquecer</span>
+      <span class="lab"><span class="arm hi">B+</span><span class="vs">−</span><span class="arm">B</span>
+      <small>grupo de control, 15 tareas, 75 pares</small></span>
       <span class="track"><i class="bar"></i><i class="pt"></i></span>
       <span class="val">−0,52 [−0,93, −0,16]</span>
     </div>
@@ -264,73 +380,70 @@ a{color:var(--accent);text-underline-offset:2px}
 
   <div class="stack" style="padding-top:30px">
     <div class="prose">
-      <p>El defecto de la ronda 1 <b>se reproduce</b>: la herramienta sin
-      enriquecer gasta 2,22 pasos más que una captura de pantalla en tareas de
-      menú y diálogo, y el intervalo no toca el cero. El enriquecimiento quita
-      1,73 de esos pasos, y entonces la herramienta y la línea base <b>dejan de
-      ser distinguibles</b>. No la adelanta: la empata.</p>
-      <p>En el grupo de control de 15 tareas —donde el enriquecimiento solo
-      tenía que <em>no estorbar</em>— resulta que además ahorra medio paso, y el
-      intervalo tampoco toca el cero. Con la reducción pre-registrada a 8 tareas
-      esto no se detectaba.</p>
+      <p>El defecto se reproduce: <span class="arm">B</span> gasta 2,22 pasos
+      más que <span class="arm base">A</span> en menús y diálogos.
+      <span class="arm hi">B+</span> quita 1,73 de esos pasos y entonces
+      <span class="arm hi">B+</span> y <span class="arm base">A</span> dejan de
+      ser distinguibles. No la adelanta: la empata.</p>
+      <p>En el grupo de control, donde <span class="arm hi">B+</span> solo tenía
+      que no estorbar, además ahorra medio paso.</p>
     </div>
     <div class="tw">
       <table>
-        <thead><tr><th>Tarea de menú o diálogo</th><th>A · línea base</th><th>B · herramienta</th><th>B+ · enriquecida</th></tr></thead>
+        <thead><tr><th>Tarea de menú o diálogo</th><th><span class="arm base">A</span></th><th><span class="arm">B</span></th><th><span class="arm hi">B+</span></th></tr></thead>
         <tbody>
-          <tr class="mark"><td><code>menu_files_new_folder</code></td><td class="n">2/5 en 19,2</td><td class="n">2/5 en 17,8</td><td class="n win">5/5 en 11,8</td></tr>
-          <tr><td><code>menu_save_as_subdir</code></td><td class="n">1/6 en 14,5</td><td class="n">6/6 en 9,2</td><td class="n win">6/6 en 7,3</td></tr>
-          <tr><td><code>files_rename</code></td><td class="n">5/5 en 6,0</td><td class="n">3/5 en 15,0</td><td class="n">4/5 en 13,2</td></tr>
-          <tr><td><code>text_replace</code></td><td class="n">5/5 en 4,0</td><td class="n">5/5 en 11,0</td><td class="n">5/5 en 9,0</td></tr>
-          <tr><td><code>menu_replace_all</code></td><td class="n">6/6 en 10,3</td><td class="n">6/6 en 10,5</td><td class="n">6/6 en 9,0</td></tr>
-          <tr><td><code>menu_calc_insert_column</code></td><td class="n">5/5 en 12,6</td><td class="n">5/5 en 13,6</td><td class="n lose">5/5 en 14,6</td></tr>
-          <tr><td><code>calc_add_row</code></td><td class="n">5/5 en 9,0</td><td class="n">1/5 en 16,0</td><td class="n lose">0/5 en 16,0</td></tr>
+          <tr class="mark"><td><code>menu_files_new_folder</code></td><td class="n">2/5 · 19,2</td><td class="n">2/5 · 17,8</td><td class="n win">5/5 · 11,8</td></tr>
+          <tr class="mark"><td><code>menu_save_as_subdir</code></td><td class="n">1/6 · 14,5</td><td class="n">6/6 · 9,2</td><td class="n win">6/6 · 7,3</td></tr>
+          <tr><td><code>files_rename</code></td><td class="n">5/5 · 6,0</td><td class="n">3/5 · 15,0</td><td class="n">4/5 · 13,2</td></tr>
+          <tr><td><code>text_replace</code></td><td class="n">5/5 · 4,0</td><td class="n">5/5 · 11,0</td><td class="n">5/5 · 9,0</td></tr>
+          <tr><td><code>menu_replace_all</code></td><td class="n">6/6 · 10,3</td><td class="n">6/6 · 10,5</td><td class="n">6/6 · 9,0</td></tr>
+          <tr><td><code>menu_calc_insert_column</code></td><td class="n">5/5 · 12,6</td><td class="n">5/5 · 13,6</td><td class="n lose">5/5 · 14,6</td></tr>
+          <tr><td><code>calc_add_row</code></td><td class="n">5/5 · 9,0</td><td class="n">1/5 · 16,0</td><td class="n lose">0/5 · 16,0</td></tr>
         </tbody>
-        <caption>Éxitos y pasos medios. Todo el efecto vive en tres tareas, y
-        dos de ellas son nuevas de esta ronda —construidas a propósito para
-        sondear el defecto, lo cual está declarado en las predicciones y no se
-        arregla declarándolo.</caption>
+        <caption>Aciertos y pasos medios. Todo el efecto vive en tres tareas, y
+        dos son nuevas de esta ronda —construidas a propósito para sondear el
+        defecto, lo cual está declarado en las predicciones y no se arregla
+        declarándolo—.</caption>
       </table>
     </div>
     <div class="aside">
-      <span class="t">El contraejemplo, auditado acción por acción</span>
-      <p class="note"><code>calc_add_row</code> es 0/5 con el enriquecimiento.
-      No es un fallo del arnés: cero abortos, cero fallos de grounding, ningún
-      error. La línea base mete la fila entera en una sola acción
-      (<code>type 'tape\t6\t2'</code>); los dos brazos de herramienta direccionan
-      celda a celda y gastan <b>tres pasos más</b>. Esos tres pasos son los que
-      dejan la ejecución atrapada en el diálogo de formato CSV justo al llegar
-      al techo de 16. Como B y B+ hacen exactamente lo mismo, esto mide el
-      <em>canal</em>, no el enriquecimiento. El techo se fijó en la ronda 1 y no
-      se ha tocado: subirlo ahora, sabiendo a qué brazo corta, es justo el
-      ajuste que la pre-registración existe para impedir.</p>
+      <span class="t">El 0/5 de <code>calc_add_row</code>, auditado acción por acción</span>
+      <p class="note">No es un fallo del arnés: cero abortos, cero clics
+      fallidos, ningún error. <span class="arm base">A</span> mete la fila entera
+      en una sola acción (<code>type 'tape\t6\t2'</code>);
+      <span class="arm">B</span> y <span class="arm hi">B+</span> direccionan
+      celda a celda y gastan <b>tres pasos más</b>, que son los que dejan la
+      ejecución atrapada en el diálogo de formato CSV al llegar al techo de 16.
+      Los dos brazos hacen lo mismo, así que esto mide el <em>canal</em>, no el
+      enriquecimiento. El techo se fijó en la ronda 1 y no se ha tocado.</p>
     </div>
   </div>
 </section>
 
-<!-- ============================================================ 3 -->
+<!-- ============================================================ 4 -->
 <section>
   <div class="head">
-    <span class="eyebrow">Ablación · predicción falsada</span>
+    <span class="eyebrow">Ablación · predicción P1.5 falsada</span>
     <h2>Mandan los bloques, no los atajos</h2>
-    <p class="note">Cada brazo calcula el enriquecimiento entero y luego
-    <em>oculta</em> una sola cosa, así que el coste de calcularlo es idéntico y
-    solo cambia lo que el modelo ve. Un número positivo significa que quitar esa
-    pieza costó pasos: esa pieza estaba trabajando.</p>
+    <p class="note">Un número positivo significa que ocultar esa pieza costó
+    pasos: esa pieza estaba trabajando.</p>
   </div>
   <div class="ivs">
     <div class="iv sep" style="--zero:25%;--lo:45.8%;--p:69.3%;--hi:94.3%">
-      <span class="lab">Sin <b>bloques</b></span>
+      <span class="lab"><span class="arm">B+nb</span><span class="vs">−</span><span class="arm hi">B+</span>
+      <small>sin bloques</small></span>
       <span class="track"><i class="bar"></i><i class="pt"></i></span>
       <span class="val">+1,77 [+0,83, +2,77]</span>
     </div>
     <div class="iv sep" style="--zero:25%;--lo:27.3%;--p:51.5%;--hi:77.8%">
-      <span class="lab">Sin <b>atajos de teclado</b></span>
+      <span class="lab"><span class="arm">B+nk</span><span class="vs">−</span><span class="arm hi">B+</span>
+      <small>sin atajos de teclado</small></span>
       <span class="track"><i class="bar"></i><i class="pt"></i></span>
       <span class="val">+1,06 [+0,09, +2,11]</span>
     </div>
     <div class="iv" style="--zero:25%;--lo:7.3%;--p:27.8%;--hi:49.3%">
-      <span class="lab">Sin <b>alcanzabilidad</b></span>
+      <span class="lab"><span class="arm">B+nr</span><span class="vs">−</span><span class="arm hi">B+</span>
+      <small>sin alcanzabilidad</small></span>
       <span class="track"><i class="bar"></i><i class="pt"></i></span>
       <span class="val">+0,11 [−0,71, +0,97]</span>
     </div>
@@ -338,100 +451,137 @@ a{color:var(--accent);text-underline-offset:2px}
   <div class="scale">
     <span></span>
     <span class="ticks"><span style="left:0">−1</span><span style="left:25%">0</span><span style="left:50%">+1</span><span style="left:75%">+2</span><span style="left:100%">+3</span></span>
-    <span class="axis-note">pasos de más al quitarlo</span>
+    <span class="axis-note">pasos de más al ocultarlo</span>
   </div>
-  <div class="prose" style="padding-top:26px">
+  <div class="tw" style="margin-top:28px">
+    <table>
+      <thead><tr><th>Brazo</th><th>Éxito en el grupo de menús</th><th>Pasos</th><th>Coste del enriquecimiento que oculta</th></tr></thead>
+      <tbody>
+        <tr class="mark"><td><span class="arm hi">B+</span> · todo visible</td><td class="n">31/37</td><td class="n">11,38</td><td class="mute">—</td></tr>
+        <tr><td><span class="arm">B+nb</span> · sin bloques</td><td class="n">26/35</td><td class="n lose">13,37</td><td class="n">0,05 ms</td></tr>
+        <tr><td><span class="arm">B+nk</span> · sin atajos</td><td class="n">27/35</td><td class="n lose">12,66</td><td class="n">3,52 ms</td></tr>
+        <tr><td><span class="arm">B+nr</span> · sin alcanzabilidad</td><td class="n win">32/35</td><td class="n">11,71</td><td class="n">0,35 ms</td></tr>
+      </tbody>
+      <caption>35 pares por brazo, emparejados en <code>(tarea, repetición)</code>
+      entre tiers.</caption>
+    </table>
+  </div>
+  <div class="prose" style="padding-top:24px">
     <p>La predicción registrada era <b>atajos &gt; alcanzabilidad &gt;
     bloques</b>. Lo medido es <b>bloques &gt; atajos &gt; alcanzabilidad</b>.
     Puse los bloques los últimos y son los primeros.</p>
-    <p>Y hay algo peor para mi razonamiento que el orden. Antes de correr la
-    ablación, el informe ya ofrecía una «evidencia indirecta»: la ganancia se
-    concentraba en los descensos de menú más profundos, <em>que es la forma que
-    predice la hipótesis de los atajos</em>. Ese argumento estaba disponible,
-    era plausible y era falso. Es la mejor defensa posible de correr una
-    ablación en vez de razonar sobre ella.</p>
-    <p>La alcanzabilidad es la pieza que esta ronda no puede justificar:
-    quitarla no cuesta nada detectable y el brazo sin ella tiene el éxito más
-    alto de la ronda. Con N=35 eso no demuestra que estorbe, pero no se está
-    pagando sola.</p>
-  </div>
-</section>
-
-<!-- ============================================================ 4 -->
-<section>
-  <div class="head">
-    <span class="eyebrow">Experimento 2 · predicción falsada</span>
-    <h2>La regla que funciona no es la que estaba escrita</h2>
-    <p class="note">El canal de solo texto tiene un fallo conocido: seis filas
-    hermanas, una en rojo, y el árbol de accesibilidad describe las seis igual.
-    La regla de ambigüedad debía arreglarlo <em>sin mirar píxeles para
-    decidir</em> —el recorte lo fuerza una propiedad del árbol, no una mirada a
-    la pantalla.</p>
-  </div>
-  <div class="stack">
-    <div class="figrow">
-      <figure>
-        <img src="jobs.png" alt="Página «Batch status» con seis filas job-alpha a job-foxtrot; job-delta tiene fondo rojo.">
-        <figcaption>Seis hermanos indistinguibles para el árbol: mismo rol,
-        mismo tamaño, mismos estados, nombres distintos. Lo único que separa a
-        <code>job-delta</code> está en los píxeles.</figcaption>
-      </figure>
-      <figure>
-        <img src="crops.png" alt="Seis recortes etiquetados, cada uno con su id de elemento y 26 tokens; el de job-delta se ve rojo.">
-        <figcaption>Lo que la regla obliga a mandar: un recorte etiquetado por
-        fila, 26 tokens cada uno. La decisión de mandarlos la toma la estructura
-        del árbol, no una inspección de la imagen.</figcaption>
-      </figure>
-    </div>
-    <div class="tw">
-      <table>
-        <thead><tr><th>Brazo sobre el par vdelta</th><th>Éxito</th><th>Pasos</th><th>Coste estimado</th></tr></thead>
-        <tbody>
-          <tr><td><b>C</b> · solo texto</td><td class="n">7/10</td><td class="n">12,20</td><td class="n">$0,1802</td></tr>
-          <tr class="mark"><td><b>C+</b> · solo texto + ambigüedad</td><td class="n win">10/10</td><td class="n win">5,00</td><td class="n win">$0,0197</td></tr>
-        </tbody>
-        <caption>Emparejado sobre 10 pares: −7,20 pasos [−8,00, −6,30], +0,300
-        de éxito [+0,100, +0,600], −$0,1605 [−$0,1961, −$0,1283]. Los tres
-        intervalos se separan del cero. C+ iguala al brazo que prioriza recortes
-        en éxito y en pasos, por <b>una novena parte</b> del coste estimado.</caption>
-      </table>
-    </div>
-    <div class="aside">
-      <span class="t">Pero la regla del documento de diseño disparó cero veces</span>
-      <p class="note">La regla registrada era <em>mismo rol, mismo nombre,
-      rectángulos disjuntos</em>. De los <b>55 recortes forzados</b>, <b>0</b>
-      vinieron de ella. Los 55 vinieron de una segunda regla que añadí tras leer
-      el árbol y antes de ejecutar nada, y que registré explícitamente como la
-      afirmación más débil para poder distinguirlas. Las seis filas tienen
-      nombres <em>distintos</em>; lo que las hace ambiguas es que son
-      intercambiables en todo lo que la tabla reporta, no que se llamen igual.
-      El caso se resuelve; el diagnóstico del documento era incorrecto.</p>
-    </div>
+    <p>Peor que el orden: antes de correr la ablación el informe ya ofrecía una
+    «evidencia indirecta» de que mandaban los atajos —la ganancia se concentraba
+    en los menús más profundos, que es la forma que predice esa hipótesis—. Era
+    plausible y era falsa. Es la mejor defensa posible de correr una ablación en
+    vez de razonar sobre ella.</p>
+    <p>La <b>alcanzabilidad</b> cuesta 0,35 ms por paso y ocultarla no cuesta
+    nada detectable: <span class="arm">B+nr</span> tiene el éxito más alto de la
+    ronda. Con N=35 eso no demuestra que estorbe, pero no se está pagando sola.
+    Los <b>bloques</b> cuestan 0,05 ms y son lo único que carga trabajo con
+    claridad.</p>
   </div>
 </section>
 
 <!-- ============================================================ 5 -->
 <section>
   <div class="head">
+    <span class="eyebrow">Experimento 2 · predicción P2.2 falsada</span>
+    <h2><span class="arm">C</span> contra <span class="arm">C+</span>: cuándo el texto no basta</h2>
+    <p class="note">Seis filas hermanas, una en rojo. El árbol de accesibilidad
+    describe las seis igual. La marca de ambigüedad debe forzar un recorte
+    <em>sin mirar los píxeles para decidirlo</em>: lo dispara una propiedad del
+    árbol, no una inspección de la pantalla.</p>
+  </div>
+  <div class="stack">
+    <div class="figrow">
+      <figure>
+        <img src="jobs.png" alt="Página «Batch status» con seis filas job-alpha a job-foxtrot; job-delta tiene fondo rojo.">
+        <figcaption>Lo que hay en pantalla. Mismo rol, mismo tamaño, mismos
+        estados, nombres distintos. Lo único que separa a <code>job-delta</code>
+        está en los píxeles.</figcaption>
+      </figure>
+      <figure>
+        <img src="crops.png" alt="Seis recortes etiquetados, cada uno con su id de elemento y 26 tokens; el de job-delta se ve rojo.">
+        <figcaption>Lo que la marca obliga a mandar en
+        <span class="arm">C+</span>: un recorte etiquetado por fila, 26 tokens
+        cada uno.</figcaption>
+      </figure>
+    </div>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Brazo</th><th>Éxito</th><th>Pasos</th><th>$ estimado</th></tr></thead>
+        <tbody>
+          <tr><td><span class="arm">C</span> · solo texto</td><td class="n">7/10 <span class="mb"><i style="--w:70%"></i></span></td><td class="n">12,20</td><td class="n">0,1802</td></tr>
+          <tr class="mark"><td><span class="arm">C+</span> · texto + ambigüedad</td><td class="n win">10/10 <span class="mb"><i style="--w:100%"></i></span></td><td class="n win">5,00</td><td class="n win">0,0197</td></tr>
+        </tbody>
+        <caption>Emparejado sobre 10 pares: <b>−7,20 pasos</b> [−8,00, −6,30],
+        <b>+0,300 de éxito</b> [+0,100, +0,600], <b>−$0,1605</b> [−0,1961,
+        −0,1283]. Los tres intervalos se separan del cero.
+        <span class="arm">C+</span> iguala a <span class="arm">B</span> —el brazo
+        que manda recortes siempre— en éxito y pasos, por <b>una novena
+        parte</b> del coste estimado.</caption>
+      </table>
+    </div>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Qué regla disparó el recorte</th><th>Veces</th><th>Registrada dónde</th></tr></thead>
+        <tbody>
+          <tr><td>Mismo rol, <b>mismo nombre</b>, rectángulos disjuntos</td><td class="n lose">0 / 55</td><td>§5.2 del documento de diseño — la predicción P2.2</td></tr>
+          <tr class="mark"><td>Conjunto de <b>hermanos intercambiables</b> en todo lo que la tabla reporta</td><td class="n win">55 / 55</td><td>Añadida tras leer el árbol, antes de ejecutar, como la afirmación más débil</td></tr>
+        </tbody>
+        <caption>Las seis filas tienen nombres <em>distintos</em>: lo que las
+        hace ambiguas no es llamarse igual. El caso se resuelve; el diagnóstico
+        del documento era incorrecto. Se cuentan por separado para que un
+        resultado no se le acredite nunca a la regla que no disparó.</caption>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 6 -->
+<section>
+  <div class="head">
     <span class="eyebrow">Experimento 3 · el presupuesto</span>
     <h2>Por debajo de ningún techo gana de forma detectable</h2>
-    <p class="note">Tres techos de tokens frescos, aplicados <em>durante</em> la
-    ejecución, sobre las diez tareas registradas, 50 ejecuciones por celda y el
-    límite de pasos duplicado para que quien tenga presupuesto pueda gastarlo.</p>
+    <p class="note">Tres techos de tokens frescos —entrada + escritura de caché +
+    salida—, aplicados <em>durante</em> la ejecución sobre diez tareas, 50
+    ejecuciones por celda, con el límite de pasos duplicado para que quien tenga
+    presupuesto pueda gastarlo.</p>
   </div>
-  <div class="ivs">
+  <div class="tw">
+    <table>
+      <thead><tr><th>Techo</th><th>Brazo</th><th>n</th><th>Éxito</th><th>Se quedó sin presupuesto</th><th>Pasos</th></tr></thead>
+      <tbody>
+        <tr><td class="n">8.000</td><td><span class="arm base">A</span></td><td class="n">50</td><td class="n">0,320 <span class="mb base"><i style="--w:32%"></i></span></td><td class="n lose">39/50 · 78 %</td><td class="n">5,5</td></tr>
+        <tr class="mark"><td class="n">8.000</td><td><span class="arm hi">B+</span></td><td class="n">50</td><td class="n">0,380 <span class="mb"><i style="--w:38%"></i></span></td><td class="n">32/50 · 64 %</td><td class="n">6,5</td></tr>
+        <tr class="rule-top"><td class="n">15.000</td><td><span class="arm base">A</span></td><td class="n">50</td><td class="n">0,540 <span class="mb base"><i style="--w:54%"></i></span></td><td class="n">24/50 · 48 %</td><td class="n">7,3</td></tr>
+        <tr class="mark"><td class="n">15.000</td><td><span class="arm hi">B+</span></td><td class="n">50</td><td class="n">0,560 <span class="mb"><i style="--w:56%"></i></span></td><td class="n">22/50 · 44 %</td><td class="n">8,7</td></tr>
+        <tr class="rule-top"><td class="n">30.000</td><td><span class="arm base">A</span></td><td class="n">50</td><td class="n">0,680 <span class="mb base"><i style="--w:68%"></i></span></td><td class="n">18/50 · 36 %</td><td class="n">9,2</td></tr>
+        <tr class="mark"><td class="n">30.000</td><td><span class="arm hi">B+</span></td><td class="n">50</td><td class="n">0,660 <span class="mb"><i style="--w:66%"></i></span></td><td class="n">17/50 · 34 %</td><td class="n">11,4</td></tr>
+      </tbody>
+      <caption>El presupuesto se cuenta en tokens frescos. Una lectura de caché
+      ni es trabajo que el proveedor rehace ni se paga a tarifa completa;
+      cobrarla penalizaría justo aquello que abarata a los brazos append-only, y
+      permitiría elegir al ganador eligiendo el denominador.</caption>
+    </table>
+  </div>
+  <div class="ivs" style="margin-top:34px">
     <div class="iv" style="--zero:40%;--lo:20%;--p:52%;--hi:84%">
-      <span class="lab">Techo de <b>8.000</b> tokens frescos</span>
+      <span class="lab"><span class="arm hi">B+</span><span class="vs">−</span><span class="arm base">A</span>
+      <small>techo de 8.000, 50 pares</small></span>
       <span class="track"><i class="bar"></i><i class="pt"></i></span>
       <span class="val">+0,060 [−0,100, +0,220]</span>
     </div>
     <div class="iv" style="--zero:40%;--lo:12%;--p:44%;--hi:76%">
-      <span class="lab">Techo de <b>15.000</b></span>
+      <span class="lab"><span class="arm hi">B+</span><span class="vs">−</span><span class="arm base">A</span>
+      <small>techo de 15.000</small></span>
       <span class="track"><i class="bar"></i><i class="pt"></i></span>
       <span class="val">+0,020 [−0,140, +0,180]</span>
     </div>
     <div class="iv" style="--zero:40%;--lo:12%;--p:36%;--hi:60%">
-      <span class="lab">Techo de <b>30.000</b></span>
+      <span class="lab"><span class="arm hi">B+</span><span class="vs">−</span><span class="arm base">A</span>
+      <small>techo de 30.000</small></span>
       <span class="track"><i class="bar"></i><i class="pt"></i></span>
       <span class="val">−0,020 [−0,140, +0,100]</span>
     </div>
@@ -439,56 +589,69 @@ a{color:var(--accent);text-underline-offset:2px}
   <div class="scale">
     <span></span>
     <span class="ticks"><span style="left:0">−0,2</span><span style="left:40%">0</span><span style="left:80%">+0,2</span></span>
-    <span class="axis-note">éxito, enriquecida − línea base</span>
+    <span class="axis-note">éxito emparejado</span>
   </div>
   <div class="prose" style="padding-top:26px">
-    <p><b>Ningún intervalo de éxito se separa del cero en ningún techo.</b> La
-    estimación puntual sí cambia de signo, entre 15.000 y 30.000, y baja de
-    forma monótona según se afloja el presupuesto: exactamente la dirección que
-    predice la hipótesis —la ventaja de la herramienta es decir más por token—.
-    Pero la dirección no es una separación. La respuesta honesta del
-    experimento 3 es <em>por debajo de ningún presupuesto del rango medido gana
-    de forma detectable, y la tendencia va en el sentido predicho</em>.</p>
-    <p>Lo que sí se separa del cero, en los tres techos, no favorece a la
-    herramienta: gasta más pasos que la línea base, y la diferencia <b>crece</b>
-    según se afloja el presupuesto (+0,98 → +1,40 → +2,22). La herramienta
-    compra eficiencia en tokens pagando en pasos; cuando los tokens dejan de
-    escasear, ya no hay nada que comprar.</p>
+    <p><b>Ningún intervalo se separa del cero en ningún techo.</b> La estimación
+    puntual sí cambia de signo entre 15.000 y 30.000, y baja de forma monótona
+    según se afloja el presupuesto: la dirección que predice la hipótesis. Pero
+    una dirección no es una separación.</p>
+    <p>Lo que sí se separa del cero en los tres techos no favorece a
+    <span class="arm hi">B+</span>: gasta más pasos que
+    <span class="arm base">A</span>, y la diferencia <b>crece</b> al aflojar el
+    presupuesto (+0,98 → +1,40 → +2,22). Compra eficiencia en tokens pagando en
+    pasos; cuando los tokens dejan de escasear, ya no hay nada que comprar.</p>
   </div>
   <div class="aside" style="margin-top:24px">
     <span class="t">Y de paso corrige el titular de la ronda 1</span>
     <p class="note">La ronda 1 informó de que la herramienta se quedaba sin
-    presupuesto en <b>0 de 27</b> ejecuciones con este mismo techo de 8.000.
-    Aquí se queda sin presupuesto en <b>32 de 50 (64 %)</b>. Aquel titular era
-    una propiedad del subconjunto de 9 tareas que usó, no del brazo —tal como
-    decían las predicciones antes de ejecutar nada, aunque predije un 20–50 % y
-    me quedé corto.</p>
+    presupuesto en <b>0 de 27</b> ejecuciones con este mismo techo de 8.000. Aquí
+    se queda sin presupuesto en <b>32 de 50</b>. Aquel titular era una propiedad
+    del subconjunto de 9 tareas que usó, no del brazo.</p>
   </div>
 </section>
 
-<!-- ============================================================ 6 -->
+<!-- ============================================================ 7 -->
 <section>
   <div class="head">
     <span class="eyebrow">Experimento 4 · el efecto mayor</span>
     <h2>En tareas largas la diferencia no se parece a nada del resto</h2>
     <p class="note">Cuatro tareas de 40 pasos permitidos, con restricciones
-    explícitas que se verifican <em>una por una</em>, para separar «falló la
-    tarea» de «olvidó una condición». Este es el experimento que el tope de
-    gasto habría cortado.</p>
+    explícitas que se verifican <em>una por una</em> para separar «falló la
+    tarea» de «olvidó una condición».</p>
   </div>
-  <div class="ivs">
+  <div class="tw">
+    <table>
+      <thead><tr><th>Configuración</th><th>n</th><th>Éxito</th><th>Pasos</th><th>Pico de tokens de imagen</th><th>Re-anclajes</th><th>Compactaciones</th><th>$ est.</th></tr></thead>
+      <tbody>
+        <tr class="mark"><td><span class="arm hi">B+</span> · ventana 2 · objeto de tarea <b>on</b></td><td class="n">20</td><td class="n win">0,850 <span class="mb"><i style="--w:85%"></i></span></td><td class="n">20,2</td><td class="n win">2.922</td><td class="n">1,4</td><td class="n">0,7</td><td class="n">0,2704</td></tr>
+        <tr><td><span class="arm hi">B+</span> · ventana <b>4</b> · objeto on</td><td class="n">20</td><td class="n">0,800 <span class="mb"><i style="--w:80%"></i></span></td><td class="n">20,6</td><td class="n lose">3.958</td><td class="n">2,0</td><td class="n">0,2</td><td class="n">0,2866</td></tr>
+        <tr><td><span class="arm hi">B+</span> · ventana 2 · objeto <b>off</b></td><td class="n">20</td><td class="n">0,800 <span class="mb"><i style="--w:80%"></i></span></td><td class="n">20,8</td><td class="n">2.941</td><td class="n">1,4</td><td class="n">0,8</td><td class="n">0,2757</td></tr>
+        <tr class="rule-top"><td><span class="arm base">A</span> · captura cada paso</td><td class="n">20</td><td class="n lose">0,350 <span class="mb base"><i style="--w:35%"></i></span></td><td class="n lose">30,0</td><td class="mute">n/a</td><td class="n">0,0</td><td class="n">0,0</td><td class="n lose">0,4280</td></tr>
+      </tbody>
+      <caption>Las tres configuraciones de <span class="arm hi">B+</span> se
+      diferencian en exactamente un ajuste cada una. El pico de tokens de imagen
+      lo cuenta la ventana del canal de herramienta, que
+      <span class="arm base">A</span> no tiene: su gasto en imagen está en la
+      tabla de arriba, 15.350 tokens por tarea.</caption>
+    </table>
+  </div>
+  <div class="ivs" style="margin-top:34px">
     <div class="iv sep" style="--zero:20%;--lo:50%;--p:70%;--hi:90%">
-      <span class="lab">Herramienta enriquecida contra la línea base</span>
+      <span class="lab"><span class="arm hi">B+</span><span class="vs">−</span><span class="arm base">A</span>
+      <small>20 pares en tareas largas</small></span>
       <span class="track"><i class="bar"></i><i class="pt"></i></span>
       <span class="val">+0,500 [+0,300, +0,700]</span>
     </div>
     <div class="iv" style="--zero:20%;--lo:20%;--p:25%;--hi:35%">
-      <span class="lab">Ventana de 2 imágenes contra ventana de 4</span>
+      <span class="lab">Ventana de <b>2</b> imágenes <span class="vs">−</span> ventana de <b>4</b>
+      <small>y −1.036 tokens de imagen [−1.508, −576]</small></span>
       <span class="track"><i class="bar"></i><i class="pt"></i></span>
       <span class="val">+0,050 [0,000, +0,150]</span>
     </div>
     <div class="iv" style="--zero:20%;--lo:10%;--p:25%;--hi:40%">
-      <span class="lab">Objeto de tarea persistente, encendido contra apagado</span>
+      <span class="lab">Objeto de tarea <b>on</b> <span class="vs">−</span> <b>off</b>
+      <small>predicción P4.1</small></span>
       <span class="track"><i class="bar"></i><i class="pt"></i></span>
       <span class="val">+0,050 [−0,100, +0,200]</span>
     </div>
@@ -496,71 +659,43 @@ a{color:var(--accent);text-underline-offset:2px}
   <div class="scale">
     <span></span>
     <span class="ticks"><span style="left:0">−0,2</span><span style="left:20%">0</span><span style="left:60%">+0,4</span><span style="left:100%">+0,8</span></span>
-    <span class="axis-note">éxito, emparejado</span>
+    <span class="axis-note">éxito emparejado</span>
   </div>
 
   <div class="stack" style="padding-top:30px">
     <div class="tw">
       <table>
-        <thead><tr><th>Tarea larga</th><th>A · línea base</th><th>B+ · enriquecida</th></tr></thead>
+        <thead><tr><th>Tarea larga</th><th><span class="arm base">A</span></th><th><span class="arm hi">B+</span></th></tr></thead>
         <tbody>
-          <tr class="mark"><td><code>long_notes_digest</code></td><td class="n lose">0/5, agota los 40 pasos</td><td class="n win">15/15 en 17,1</td></tr>
-          <tr class="mark"><td><code>long_region_transfer</code></td><td class="n">2/5 en 30,0</td><td class="n win">15/15 en 13,6</td></tr>
-          <tr><td><code>long_ledger_edits</code></td><td class="n">5/5 en 10,0</td><td class="n">15/15 en 14,8</td></tr>
-          <tr><td><code>long_march_export</code></td><td class="n lose">0/5, agota los 40 pasos</td><td class="n">4/15 en 36,6</td></tr>
+          <tr class="mark"><td><code>long_notes_digest</code></td><td class="n lose">0/5 · agota los 40 pasos</td><td class="n win">15/15 · 17,1</td></tr>
+          <tr class="mark"><td><code>long_region_transfer</code></td><td class="n">2/5 · 30,0</td><td class="n win">15/15 · 13,6</td></tr>
+          <tr><td><code>long_ledger_edits</code></td><td class="n">5/5 · 10,0</td><td class="n">15/15 · 14,8</td></tr>
+          <tr><td><code>long_march_export</code></td><td class="n lose">0/5 · agota los 40 pasos</td><td class="n">4/15 · 36,6</td></tr>
         </tbody>
-        <caption>La línea base acierta 0,350 de estas tareas; la herramienta
-        enriquecida, 0,850. Además usa 9,75 pasos menos y un 37 % menos de
-        dinero estimado. Es el efecto más grande de toda la ronda, y está en el
-        extremo de la suite que la ronda <em>no</em> estaba diseñada para
-        estudiar: hay 4 tareas largas frente a 22 cortas.</caption>
+        <caption><span class="arm hi">B+</span> usa además 9,75 pasos menos y un
+        37 % menos de dinero estimado. Es el efecto más grande de toda la ronda,
+        y está en el extremo de la suite que la ronda <em>no</em> estaba diseñada
+        para estudiar: 4 tareas largas frente a 22 cortas.</caption>
       </table>
     </div>
-    <div class="prose">
-      <p><b>La ventana corta de imágenes se paga sola.</b> Mantener como mucho
-      dos capturas vivas en el contexto, en vez de cuatro, cuesta un <b>26 %
-      menos</b> de tokens de imagen en el pico (−1.036 [−1.508, −576]) y el
-      intervalo de éxito tiene el cero justo en el borde inferior: no se
-      renuncia a nada por ello. Es la predicción P4.2 y se cumple.</p>
-      <p><b>El objeto de tarea persistente no hace lo que predije.</b> Debía
-      reducir a la mitad las restricciones olvidadas. En la única tarea donde
-      había algo que reducir pasa del 60 % al 52 % de violaciones, y las dos
-      configuraciones no se separan. La línea base, para comparar, viola el
-      <b>75 %</b> de las restricciones en ambas tareas.</p>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Restricciones olvidadas</th><th>Brazo</th><th>Objeto de tarea</th><th>Violaciones</th></tr></thead>
+        <tbody>
+          <tr><td><code>long_march_export</code></td><td><span class="arm base">A</span></td><td class="mute">off</td><td class="n lose">15/20 · 75 %</td></tr>
+          <tr><td><code>long_march_export</code></td><td><span class="arm hi">B+</span></td><td>off</td><td class="n">12/20 · 60 %</td></tr>
+          <tr><td><code>long_march_export</code></td><td><span class="arm hi">B+</span></td><td>on</td><td class="n">21/40 · 52 %</td></tr>
+          <tr class="rule-top"><td><code>long_notes_digest</code></td><td><span class="arm base">A</span></td><td class="mute">off</td><td class="n lose">15/20 · 75 %</td></tr>
+          <tr><td><code>long_notes_digest</code></td><td><span class="arm hi">B+</span></td><td>off</td><td class="n win">0/20 · 0 %</td></tr>
+          <tr><td><code>long_notes_digest</code></td><td><span class="arm hi">B+</span></td><td>on</td><td class="n win">0/40 · 0 %</td></tr>
+        </tbody>
+        <caption>El objeto de tarea persistente debía reducir a la mitad las
+        restricciones olvidadas. En la única tarea donde había algo que reducir
+        pasa del 60 % al 52 %, y las dos configuraciones no se separan. La
+        ventana corta de imágenes, en cambio, se paga sola: un 26 % menos de
+        tokens de imagen en el pico sin renunciar a nada.</caption>
+      </table>
     </div>
-  </div>
-</section>
-
-<!-- ============================================================ 7 -->
-<section>
-  <div class="head">
-    <span class="eyebrow">Lo que cuesta</span>
-    <h2>Nada en tiempo, bastante en tokens</h2>
-  </div>
-  <div class="tw">
-    <table>
-      <thead><tr><th>Fase del enriquecimiento</th><th>ms por paso</th><th>Puesto en la ablación</th></tr></thead>
-      <tbody>
-        <tr><td>Atajos de teclado leídos de menús cerrados</td><td class="n lose">3,52</td><td>2.º</td></tr>
-        <tr><td>Alcanzabilidad</td><td class="n">0,35</td><td>3.º · no detectable</td></tr>
-        <tr><td>Fusión de duplicados por geometría</td><td class="n">0,19</td><td>—</td></tr>
-        <tr class="mark"><td>Bloques</td><td class="n win">0,05</td><td><b>1.º</b></td></tr>
-        <tr><td>Ambigüedad (las dos reglas)</td><td class="n">0,05</td><td>—</td></tr>
-        <tr><td><b>Total</b></td><td class="n"><b>4,16</b></td><td></td></tr>
-      </tbody>
-      <caption>Contra una predicción de ≤150 ms y un umbral de falsación de 400,
-      4,16 ms no se acerca a ninguno de los dos. En tokens es al revés:
-      <b>+21,4 %</b> de tokens de observación [+867, +2.830] frente a una
-      predicción de ≤15 %. La predicción puntual falla; el umbral de falsación
-      (40 %) no se alcanza.</caption>
-    </table>
-  </div>
-  <div class="prose" style="padding-top:22px">
-    <p>Puestas las dos tablas juntas, la economía obvia salta a la vista: los
-    atajos cuestan 3,52 de los 4,16 ms y casi todo el exceso de tokens, y quedan
-    <em>segundos</em> en la ablación. Los bloques cuestan 0,05 ms y quedan
-    primeros. Y en el grupo de control el enriquecimiento cuesta <b>+$0,0157 por
-    tarea</b> [+0,0070, +0,0257] justo donde menos ahorra pasos.</p>
   </div>
 </section>
 
@@ -570,27 +705,58 @@ a{color:var(--accent);text-underline-offset:2px}
     <span class="eyebrow">El registro</span>
     <h2>Las doce predicciones, contra lo que pasó</h2>
     <p class="note">Escritas y congeladas antes de ejecutar nada, y no editadas
-    después. La ronda 1 construyó dos tareas después de ver que las visuales no
-    discriminaban; por eso esta vez el documento se cerró primero.</p>
+    después.</p>
   </div>
   <div class="verdicts">
     <div class="vd n"><span class="tag">Falsada</span><div><b>P1.5 · qué enriquecimiento manda.</b> Predije atajos &gt; alcanzabilidad &gt; bloques. Medido: bloques +1,77, atajos +1,06, alcanzabilidad +0,11.</div></div>
-    <div class="vd n"><span class="tag">Falsada</span><div><b>P2.2 · qué regla de ambigüedad dispara.</b> La regla del documento de diseño disparó 0 veces de 55; las 55 fueron de la regla añadida tras leer el árbol.</div></div>
-    <div class="vd y"><span class="tag">Se cumple</span><div><b>P1.2 · el enriquecimiento no daña el grupo de control.</b> Y lo supera: −0,52 pasos [−0,93, −0,16] con las 15 tareas.</div></div>
-    <div class="vd y"><span class="tag">Se cumple</span><div><b>P1.3 · no alcanza del todo a la línea base en menús.</b> +0,49 [−1,68, +2,54], solapado.</div></div>
-    <div class="vd y"><span class="tag">Se cumple</span><div><b>P1.4 · empata con B en tareas visuales resolubles desde el anclaje.</b> 6,4 contra 6,4 pasos; 10,0 contra 10,0.</div></div>
+    <div class="vd n"><span class="tag">Falsada</span><div><b>P2.2 · qué regla de ambigüedad dispara.</b> La regla del documento de diseño disparó 0 veces de 55.</div></div>
+    <div class="vd y"><span class="tag">Se cumple</span><div><b>P1.2 · <span class="arm hi">B+</span> no daña el grupo de control.</b> Y lo supera: −0,52 pasos [−0,93, −0,16].</div></div>
+    <div class="vd y"><span class="tag">Se cumple</span><div><b>P1.3 · <span class="arm hi">B+</span> no alcanza del todo a <span class="arm base">A</span> en menús.</b> +0,49 [−1,68, +2,54], solapado.</div></div>
+    <div class="vd y"><span class="tag">Se cumple</span><div><b>P1.4 · <span class="arm hi">B+</span> empata con <span class="arm">B</span> en tareas visuales resolubles desde el anclaje.</b> 6,4 contra 6,4 pasos.</div></div>
     <div class="vd y"><span class="tag">Se cumple</span><div><b>P4.2 · la ventana de 2 imágenes ahorra ≥25 % de tokens de imagen, gratis.</b> −26,2 %, sin pérdida de éxito.</div></div>
-    <div class="vd y"><span class="tag">De sobra</span><div><b>P2.1 · C+ llega a ≥6/10 en ≤7,0 pasos.</b> 10/10 en 5,00.</div></div>
-    <div class="vd o"><span class="tag">A medias</span><div><b>P1.1 · el enriquecimiento quita ≥2,0 pasos.</b> Quita 1,73 [−2,78, −0,73]: dirección y separación sí, magnitud no.</div></div>
+    <div class="vd y"><span class="tag">De sobra</span><div><b>P2.1 · <span class="arm">C+</span> llega a ≥6/10 en ≤7,0 pasos.</b> 10/10 en 5,00.</div></div>
+    <div class="vd o"><span class="tag">A medias</span><div><b>P1.1 · <span class="arm hi">B+</span> quita ≥2,0 pasos.</b> Quita 1,73: dirección y separación sí, magnitud no.</div></div>
     <div class="vd o"><span class="tag">Corto</span><div><b>P1.1b · 7–11 pasos en las tres tareas del defecto</b> (falsa a partir de 13,0). Medido 12,73: fuera de la banda, sin llegar a falsarse.</div></div>
     <div class="vd o"><span class="tag">Me quedé corto</span><div><b>P3.2 · el techo de 8.000 corta el 20–50 % de las ejecuciones.</b> Corta el 64 %.</div></div>
-    <div class="vd o"><span class="tag">Acotada</span><div><b>P3.1 · hay un cruce entre 8.000 y 30.000 tokens.</b> El signo cambia entre 15.000 y 30.000, pero ningún intervalo se separa del cero: acotado, no establecido.</div></div>
+    <div class="vd o"><span class="tag">Acotada</span><div><b>P3.1 · hay un cruce entre 8.000 y 30.000 tokens.</b> El signo cambia entre 15.000 y 30.000, pero ningún intervalo se separa del cero.</div></div>
     <div class="vd o"><span class="tag">No se cumple</span><div><b>P4.1 · el objeto de tarea reduce a la mitad las restricciones olvidadas.</b> Del 60 % al 52 %, sin separación.</div></div>
-    <div class="vd o"><span class="tag">Partida</span><div><b>P5.1 · ≤150 ms y ≤15 % de tokens.</b> 4,16 ms muy por dentro; +21,4 % de tokens por fuera de la predicción puntual y por dentro del umbral de falsación.</div></div>
+    <div class="vd o"><span class="tag">Partida</span><div><b>P5.1 · ≤150 ms y ≤15 % de tokens.</b> 4,16 ms muy por dentro; +21,4 % de tokens [+843, +2.830] fuera de la predicción puntual y dentro del umbral de falsación del 40 %.</div></div>
   </div>
 </section>
 
 <!-- ============================================================ 9 -->
+<section>
+  <div class="head">
+    <span class="eyebrow">De dónde viene esto</span>
+    <h2>Lo que dejó la ronda 1</h2>
+    <p class="note">352 ejecuciones, cuatro canales, $22,96 estimados. Sus datos
+    crudos no se han tocado. <span class="arm">D</span> es un brazo que solo
+    existió en aquella ronda: tiene la tabla de elementos pero reenvía tabla y
+    captura completas cada paso, sin deltas.</p>
+  </div>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Brazo</th><th>n</th><th>Éxito</th><th>Tokens / tarea</th><th>Imagen / tarea</th><th>Caché</th><th>$ est. / completada</th></tr></thead>
+      <tbody>
+        <tr><td><span class="arm base">A</span> · línea base</td><td class="n">62</td><td class="n">0,903</td><td class="n">22.144</td><td class="n lose">10.993</td><td class="n lose">17,1 %</td><td class="n">0,0860</td></tr>
+        <tr class="mark"><td><span class="arm">B</span> · recorte primero</td><td class="n">74</td><td class="n">0,919</td><td class="n">83.805</td><td class="n win">1.696</td><td class="n win">90,7 %</td><td class="n win">0,0606</td></tr>
+        <tr><td><span class="arm">C</span> · solo texto</td><td class="n">74</td><td class="n">0,838</td><td class="n">93.870</td><td class="n">1.807</td><td class="n">90,7 %</td><td class="n">0,0808</td></tr>
+        <tr><td><span class="arm">D</span> · sin deltas</td><td class="n">61</td><td class="n">0,902</td><td class="n lose">176.599</td><td class="n lose">12.139</td><td class="n">84,3 %</td><td class="n lose">0,1640</td></tr>
+      </tbody>
+      <caption>271 ejecuciones de la tanda principal más 81 con presupuesto
+      igualado.</caption>
+    </table>
+  </div>
+  <div class="verdicts" style="margin-top:30px">
+    <div class="vd y"><span class="tag">Establecido</span><div>Los clics fallidos desaparecen: 0,21 por tarea en <span class="arm base">A</span>, 0,00 en todo lo demás.</div></div>
+    <div class="vd y"><span class="tag">Establecido</span><div>Con presupuesto igualado, <span class="arm">B</span> completa 27/27 tareas frente a 17/27 de <span class="arm base">A</span>.</div></div>
+    <div class="vd y"><span class="tag">Establecido</span><div>En tareas largas <span class="arm">B</span> es 2,3× más barato por tarea completada. La ventaja viene de los deltas, no de la tabla: <span class="arm">D</span> tiene la tabla y es el brazo más caro medido.</div></div>
+    <div class="vd o"><span class="tag">Sin señal</span><div>Con tokens ilimitados el éxito no mejora: 0,919 contra 0,903, intervalos solapados.</div></div>
+    <div class="vd n"><span class="tag">Roto</span><div>En menús y diálogos costaba pasos. Una lista plana no dice qué está agrupado con qué, qué está tapado ni qué se abre con una tecla. <b>Ese es el defecto que esta ronda ataca.</b></div></div>
+  </div>
+</section>
+
+<!-- ============================================================ 10 -->
 <section>
   <div class="head">
     <span class="eyebrow">Lo que hay que descontar</span>
@@ -598,58 +764,56 @@ a{color:var(--accent);text-underline-offset:2px}
   </div>
   <ul class="note">
     <li><b>Las tareas nuevas se construyeron para que el tratamiento luciera, y
-    lucieron.</b> De las tres tareas que cargan con el efecto, dos son nuevas.
-    Quien las descuente se queda con un efecto real, pequeño, que no alcanza su
-    propio umbral registrado.</li>
+    lucieron.</b> De las tres tareas que cargan con el efecto del experimento 1,
+    dos son nuevas. Quien las descuente se queda con un efecto real, pequeño, que
+    no alcanza su propio umbral registrado.</li>
     <li><b>La ablación y el experimento 4 emparejan entre tiers, no
-    intercalados.</b> En ellos la variable manipulada <em>es</em> el tier, así
-    que los pares comparten tarea, semilla y ajustes, pero no la hora a la que
-    corrieron. Dos conclusiones —una falsación y una confirmación— descansan en
-    ese control más débil.</li>
-    <li><b>N = 5 y la dispersión no es pequeña.</b> El intervalo de la
+    intercalados.</b> Ahí la variable manipulada <em>es</em> el tier: los pares
+    comparten tarea, semilla y ajustes, pero no la hora a la que corrieron. Una
+    falsación y una confirmación descansan en ese control más débil.</li>
+    <li><b>N = 5 por celda y la dispersión no es pequeña.</b> El intervalo de la
     comparación principal admite que el efecto real sea un cuarto de la
     estimación puntual o vez y media. Donde los intervalos se solapan, aquí se
     dice «no hay diferencia detectable con esta N», nunca «son iguales».</li>
     <li><b>La temperatura no está fijada.</b> Esto corre sobre una suscripción a
     través de la CLI; no hay clave de API ni parámetro de decodificación que
-    tocar. Es idéntico entre brazos por construcción, así que no sesga ninguna
-    comparación, pero ensancha todos los intervalos. El emparejamiento es la
-    compensación.</li>
+    tocar. Es idéntica entre brazos por construcción, así que no sesga ninguna
+    comparación, pero ensancha todos los intervalos.</li>
     <li><b>El análisis mezcló condiciones hasta que se detectó.</b> El
-    emparejamiento usaba <code>(tarea, repetición)</code>, correcto hasta que
-    los barridos de presupuesto repitieron tareas del grupo de control: entonces
-    una ejecución truncada podía emparejarse contra una sin restricción. Salió a
-    la luz porque el exceso de tokens pasó de +19,2 % a +1,6 %. Corregido, y
-    contado aquí en vez de aplicado en silencio.</li>
+    emparejamiento usaba <code>(tarea, repetición)</code>, correcto hasta que los
+    barridos de presupuesto repitieron tareas del grupo de control: entonces una
+    ejecución truncada podía emparejarse contra una sin restricción. Salió a la
+    luz porque el exceso de tokens pasó de +19,2 % a +1,6 %. Corregido, y contado
+    aquí en vez de aplicado en silencio.</li>
     <li><b>El presupuesto se superó en un 15 %.</b> El tope de gasto se levantó
-    por instrucción explícita a los $63,05, con el experimento 4 a dos tercios y
-    la ablación sin empezar. Los tres tiers que ese dinero compró son
-    precisamente los que falsaron una predicción, contestaron una pregunta que
-    ningún otro tier podía y completaron el barrido. Quien juzgue si el método
-    es asequible debe usar $92, no $80.</li>
+    por instrucción explícita a los $63,05. Los tres tiers que ese dinero compró
+    son los que falsaron una predicción, contestaron una pregunta que ningún otro
+    tier podía y completaron el barrido. Quien juzgue si el método es asequible
+    debe usar $92, no $80.</li>
   </ul>
   <div class="aside" style="margin-top:26px">
     <span class="t">Ninguna celda con 0 aciertos es un fallo del arnés</span>
-    <p class="note">Se auditaron acción por acción. Cero ejecuciones terminan
-    con error; 20 de 2.841 acciones fueron abortadas por la validación en el
-    momento de actuar y 46 fueron fallos de grounding, <em>todos en el brazo que
-    hace clic por coordenadas</em>. De 207 ejecuciones que el agente dio por
-    terminadas, una discrepó de su verificador —y el verificador tenía razón—.
-    Todas las celdas a cero terminan en un techo de pasos o de tokens que el
-    experimento fija a propósito. Cuatro ejecuciones agotaron el límite de
-    espera por cuota; las cuatro se repitieron y las cuatro tienen reemplazo.</p>
+    <p class="note">Auditadas acción por acción. Cero ejecuciones terminan con
+    error; 20 de 2.841 acciones fueron abortadas por la validación al actuar y 46
+    fueron clics fallidos, <em>todos en <span class="arm base">A</span></em>. De
+    207 ejecuciones que el agente dio por terminadas, una discrepó de su
+    verificador —y el verificador tenía razón—. Todas las celdas a cero terminan
+    en un techo de pasos o de tokens que el experimento fija a propósito. Cuatro
+    ejecuciones agotaron el límite de espera por cuota; las cuatro se repitieron
+    y las cuatro tienen reemplazo. Se esperaron 288,5 minutos de bloqueos por
+    cuota, registrados y nunca contados como fallo.</p>
   </div>
 </section>
 
 <footer>
   <p class="tiny">Todas las cifras salen de <code>RESULTS2.md</code>, que genera
   <code>analysis/aggregate2.py</code> desde los registros crudos; ninguna se
-  escribe a mano. Los intervalos son bootstrap al 95 % sobre 5.000 remuestreos
-  de las diferencias emparejadas. <b>Los importes en dólares son estimados</b> a
+  escribe a mano. Los intervalos son bootstrap al 95 % sobre 5.000 remuestreos de
+  las diferencias emparejadas. <b>Los importes en dólares son estimados</b> a
   partir de los tokens y la tarifa publicada: esto corre sobre una suscripción y
   no hay factura que leer, así que sirven para comparar brazos entre sí y para
   nada más.</p>
-  <p class="tiny">Las capturas son de la ronda 1 y muestran el caso que el
-  experimento 2 ataca. Los datos crudos de aquella ronda no se han tocado.</p>
+  <p class="tiny">Las dos capturas son de la ronda 1 y muestran el caso que el
+  experimento 2 ataca.</p>
 </footer>
 </div>
